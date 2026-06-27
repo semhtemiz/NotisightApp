@@ -17,6 +17,8 @@ jobs:
   backend:
     name: backend
     runs-on: ubuntu-latest
+    env:
+      Jwt__SigningKey: ci-only-notisight-test-signing-key-0000000000000000
 
     steps:
       - name: Checkout
