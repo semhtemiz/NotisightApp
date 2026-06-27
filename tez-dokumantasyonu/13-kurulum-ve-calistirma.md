@@ -19,7 +19,7 @@ dotnet restore
 dotnet run
 ```
 
-Varsayilan frontend API client'i `http://localhost:5000` adresini kullanir. Farkli port kullaniliyorsa frontend icin `VITE_API_URL` set edilmelidir.
+Development ortaminda frontend API client'i `http://localhost:5228` adresini fallback olarak kullanir. Production build icin `VITE_API_URL` zorunludur ve localhost olamaz.
 
 ## Frontend Calistirma
 
@@ -44,7 +44,7 @@ Gercek degerler asla dokumana veya repoya yazilmamalidir. Asagidaki liste yalniz
 ### Backend
 
 ```text
-ConnectionStrings__DefaultConnection=Server=...;Database=...;User Id=...;Password=...;TrustServerCertificate=True
+ConnectionStrings__DefaultConnection=<sql-server-connection-string>
 Jwt__Issuer=...
 Jwt__Audience=...
 Jwt__SigningKey=...
@@ -70,21 +70,22 @@ CloudflareR2__PublicUrlPrefix=https://...
 ### Frontend
 
 ```text
-VITE_API_URL=http://localhost:5000
+VITE_API_URL=https://api.notisight.dev
 ```
 
 ## Local Secret Yonetimi
 
-.NET user-secrets veya process environment variable kullanilabilir. `appsettings.Development.json` local makineye ozel kalmali, repoya hassas bilgi ile commit edilmemelidir.
+.NET user-secrets veya process environment variable kullanilabilir. `appsettings.Development.json`, `frontend/.env.development`, upload dosyalari ve loglar local makineye ozel kalmali, repoya hassas bilgi ile commit edilmemelidir.
 
 ## Veritabani
 
-Uygulama acilista migration calistirir. Testlerde migration atlanir ve SQLite in-memory schema olusturulur.
+Uygulama Development ortaminda migration calistirir. Production ortaminda startup migration varsayilan olarak kapali kalir; yalnizca `Database:ApplyMigrationsOnStartup=true` ile opt-in yapilir. Testlerde migration atlanir ve SQLite in-memory schema olusturulur.
 
 | Ayar | Davranis |
 |---|---|
 | `Database:SkipMigrations=false` | `Migrate()` calisir |
 | `Database:SkipMigrations=true` | Migration atlanir |
+| `Database:ApplyMigrationsOnStartup=true` | Production startup migration icin opt-in |
 
 ## Ilk Kullanim Akisi
 
