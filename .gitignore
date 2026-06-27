@@ -1,0 +1,68 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Local secrets and environment overrides
+**/appsettings.Development.json
+**/appsettings.Local.json
+**/appsettings.Production.json
+**/appsettings.Staging.json
+**/.env
+**/.env.*
+!**/.env.example
+*.pfx
+*.p12
+*.pem
+*.key
+
+# .NET build output
+**/bin/
+**/obj/
+**/TestResults/
+*.trx
+*.coverage
+*.coveragexml
+coverage/
+
+# Node / Next.js dependencies and output
+**/node_modules/
+**/.next/
+**/out/
+**/dist/
+**/build/
+**/coverage/
+**/.turbo/
+**/.vercel/
+**/*.tsbuildinfo
+
+# Nested repository metadata
+frontend/.git/
+
+# Local uploads and manual test projects
+backend/src/Notisight.Api/wwwroot/uploads/*
+!backend/src/Notisight.Api/wwwroot/uploads/.gitkeep
+TestApi/
+test_api.cs
+test_openrouter.cs
+
+# Local tooling caches and profiles
+.dotnet/
+.nuget/
+.npm-cache/
+.localprofile/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
