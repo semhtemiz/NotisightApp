@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Notisight.Api.Features.AI.Contracts;
 using Notisight.Api.Features.AI.Services;
+using Notisight.Api.Features.Ingestion.Contracts;
 using Notisight.Api.Features.Ingestion.Services;
 using Notisight.Api.Infrastructure.Persistence;
 using Notisight.Api.Options;
@@ -24,6 +25,7 @@ public sealed class TestApiFactory : WebApplicationFactory<Program>, IAsyncLifet
 
     public RecordingQdrantVectorService VectorStore { get; } = new();
     public RecordingAudioTranscriptionService AudioTranscription { get; } = new();
+    public RecordingFileStorageService FileStorage { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -72,6 +74,8 @@ public sealed class TestApiFactory : WebApplicationFactory<Program>, IAsyncLifet
             services.AddSingleton<ILlmChatService, DeterministicLlmChatService>();
             services.RemoveAll<IAudioTranscriptionService>();
             services.AddSingleton<IAudioTranscriptionService>(AudioTranscription);
+            services.RemoveAll<IFileStorageService>();
+            services.AddSingleton<IFileStorageService>(FileStorage);
             services.Configure<JwtOptions>(options =>
             {
                 options.Issuer = "notisight-tests";
