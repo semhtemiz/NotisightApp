@@ -1,4 +1,3 @@
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -18,11 +17,8 @@ public sealed class NoteVectorSyncServiceTests
     [Fact]
     public async Task UpsertNoteAsync_MarksFailed_When_Embedding_Vector_Size_Does_Not_Match_Qdrant()
     {
-        await using var connection = new SqliteConnection("DataSource=:memory:");
-        await connection.OpenAsync();
-
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseSqlite(connection)
+            .UseInMemoryDatabase($"note-vector-sync-{Guid.NewGuid():N}")
             .Options;
 
         await using var dbContext = new ApplicationDbContext(options);

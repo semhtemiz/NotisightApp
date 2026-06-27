@@ -1,10 +1,8 @@
-using System.Data.Common;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -12,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Notisight.Api.Features.AI.Contracts;
 using Notisight.Api.Features.AI.Services;
+using Notisight.Api.Features.Ingestion.Contracts;
 using Notisight.Api.Features.Ingestion.Services;
 using Notisight.Api.Infrastructure.Persistence;
 using Notisight.Api.Options;
@@ -20,10 +19,11 @@ namespace Notisight.Api.Tests.Infrastructure;
 
 public sealed class TestApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
-    private DbConnection _connection = null!;
+    private readonly string _databaseName = $"notisight-tests-{Guid.NewGuid():N}";
 
     public RecordingQdrantVectorService VectorStore { get; } = new();
     public RecordingAudioTranscriptionService AudioTranscription { get; } = new();
+    public RecordingFileStorageService FileStorage { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -41,9 +41,6 @@ public sealed class TestApiFactory : WebApplicationFactory<Program>, IAsyncLifet
             });
         });
         builder.ConfigureLogging(logging => logging.ClearProviders());
-        _connection = new SqliteConnection("DataSource=:memory:");
-        _connection.Open();
-
         builder.ConfigureServices(services =>
         {
             var dbContextDescriptor = services.SingleOrDefault(
@@ -54,16 +51,6 @@ public sealed class TestApiFactory : WebApplicationFactory<Program>, IAsyncLifet
                 services.Remove(dbContextDescriptor);
             }
 
-            var connectionDescriptor = services.SingleOrDefault(
-                d => d.ServiceType == typeof(DbConnection));
-
-            if (connectionDescriptor is not null)
-            {
-                services.Remove(connectionDescriptor);
-            }
-
-            services.AddSingleton(_connection);
-
             services.RemoveAll<IQdrantVectorService>();
             services.AddSingleton<IQdrantVectorService>(VectorStore);
             services.RemoveAll<IEmbeddingService>();
@@ -72,6 +59,8 @@ public sealed class TestApiFactory : WebApplicationFactory<Program>, IAsyncLifet
             services.AddSingleton<ILlmChatService, DeterministicLlmChatService>();
             services.RemoveAll<IAudioTranscriptionService>();
             services.AddSingleton<IAudioTranscriptionService>(AudioTranscription);
+            services.RemoveAll<IFileStorageService>();
+            services.AddSingleton<IFileStorageService>(FileStorage);
             services.Configure<JwtOptions>(options =>
             {
                 options.Issuer = "notisight-tests";
@@ -90,8 +79,7 @@ public sealed class TestApiFactory : WebApplicationFactory<Program>, IAsyncLifet
 
             services.AddDbContext<ApplicationDbContext>((serviceProvider, options) =>
             {
-                var connection = serviceProvider.GetRequiredService<DbConnection>();
-                options.UseSqlite(connection);
+                options.UseInMemoryDatabase(_databaseName);
             });
 
             var serviceProvider = services.BuildServiceProvider();
@@ -103,11 +91,5 @@ public sealed class TestApiFactory : WebApplicationFactory<Program>, IAsyncLifet
 
     public Task InitializeAsync() => Task.CompletedTask;
 
-    public new async Task DisposeAsync()
-    {
-        if (_connection is not null)
-        {
-            await _connection.DisposeAsync();
-        }
-    }
+    public new Task DisposeAsync() => Task.CompletedTask;
 }
