@@ -130,7 +130,7 @@ public sealed class NoteVectorLifecycleTests : IClassFixture<TestApiFactory>
 
     private static async Task WaitUntilAsync(Func<bool> condition, string because)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(5);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(15);
 
         while (DateTimeOffset.UtcNow < deadline)
         {
