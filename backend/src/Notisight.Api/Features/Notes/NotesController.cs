@@ -76,7 +76,7 @@ public sealed class NotesController(
             UserId = userId,
             FolderId = request.FolderId,
             Title = request.Title.Trim(),
-            Content = request.Content.Trim(),
+            Content = NormalizeContent(request.Content),
             VectorSyncStatus = VectorSyncStatus.Pending
         };
 
@@ -117,7 +117,7 @@ public sealed class NotesController(
         }
 
         note.Title = request.Title.Trim();
-        note.Content = request.Content.Trim();
+        note.Content = NormalizeContent(request.Content);
         note.FolderId = request.FolderId;
         note.VectorSyncStatus = VectorSyncStatus.Pending;
         note.VectorSyncError = null;
@@ -214,14 +214,17 @@ public sealed class NotesController(
     }
 
     [HttpGet("attachments/{id:guid}/file")]
-    [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAttachmentFile(
         Guid id, 
         [FromServices] Notisight.Api.Features.Ingestion.Contracts.IFileStorageService fileStorageService,
         CancellationToken cancellationToken)
     {
-        var attachment = await dbContext.NoteAttachments.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        var userId = currentUser.GetRequiredUserId();
+        var attachment = await dbContext.NoteAttachments
+            .AsNoTracking()
+            .Include(x => x.Note)
+            .SingleOrDefaultAsync(x => x.Id == id && x.Note.UserId == userId, cancellationToken);
         if (attachment == null || string.IsNullOrEmpty(attachment.FileUrl)) return NotFound();
 
         try
@@ -287,4 +290,6 @@ public sealed class NotesController(
             note.VectorSyncError,
             note.VectorSyncedAtUtc);
     }
+
+    private static string NormalizeContent(string? content) => content?.Trim() ?? string.Empty;
 }

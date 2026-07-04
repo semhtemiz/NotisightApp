@@ -11,7 +11,7 @@ const resolveApiBaseUrl = () => {
       throw new Error('VITE_API_URL must be configured for production builds.');
     }
 
-    return DEVELOPMENT_API_URL;
+    return typeof window === 'undefined' ? DEVELOPMENT_API_URL : '';
   }
 
   if (import.meta.env.PROD && LOCAL_API_URL_PATTERN.test(configuredUrl)) {

@@ -207,14 +207,14 @@ public class QueryOrchestratorService : IQueryOrchestratorService
     {
         return providerType switch
         {
-            ProviderType.OpenAI => "gpt-4o-mini",
+            ProviderType.OpenAI => "gpt-5-mini",
             ProviderType.DashScope => "qwen-plus",
-            ProviderType.Anthropic => "claude-3-haiku-20240307",
-            ProviderType.Gemini => "gemini-1.5-flash",
+            ProviderType.Anthropic => "claude-sonnet-4-5-20250929",
+            ProviderType.Gemini => "gemini-2.5-flash",
             ProviderType.DeepSeek => "deepseek-chat",
-            ProviderType.OpenRouter => "openai/gpt-4o-mini",
-            ProviderType.Grok => "grok-beta",
-            _ => "gpt-4o-mini"
+            ProviderType.OpenRouter => "openai/gpt-5-mini",
+            ProviderType.Grok => "grok-4",
+            _ => "gpt-5-mini"
         };
     }
 }

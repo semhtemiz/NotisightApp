@@ -93,8 +93,11 @@ const InlineAiPreview = Extension.create({
   },
 });
 
+const isTiptapEditorReady = (editor: any) =>
+  Boolean(editor && !editor.isDestroyed && editor.view && editor.state?.doc && editor.schema?.nodes);
+
 const setInlineAiPreviewDecoration = (editor: any, preview: InlineAiPreviewDecoration) => {
-  if (!editor?.view) return;
+  if (!isTiptapEditorReady(editor)) return;
   editor.view.dispatch(editor.state.tr.setMeta(inlineAiPreviewPluginKey, preview));
 };
 
@@ -499,16 +502,16 @@ const MenuBar = ({ editor }: { editor: any }) => {
   ];
 
   return (
-    <div className="flex flex-wrap items-center gap-1 p-1 bg-ns-bg-secondary border border-ns-border/80 rounded-xl mb-6 shadow-xl shadow-black/30 sticky top-0 z-10 w-max max-w-full shrink-0">
+    <div className="notisight-editor-toolbar no-scrollbar flex w-full max-w-full flex-nowrap items-center gap-1 overflow-x-auto p-1 bg-ns-bg-secondary border border-ns-border/80 rounded-xl mb-3 md:mb-6 shadow-xl shadow-black/30 sticky top-0 z-10 shrink-0 md:w-max md:flex-wrap md:overflow-visible">
       {buttons.map((btn, index) => (
         <React.Fragment key={index}>
-          {index === 5 || index === 7 || index === 10 ? <div className="w-px h-5 bg-ns-border mx-1" /> : null}
+          {index === 5 || index === 7 || index === 10 ? <div className="w-px h-5 bg-ns-border mx-1 shrink-0" /> : null}
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
             onClick={btn.onClick}
             title={btn.title}
-            className={`p-1.5 rounded-lg transition-all ${
+            className={`shrink-0 p-1.5 rounded-lg transition-all ${
               btn.isActive 
                 ? 'bg-ns-primary/10 text-ns-primary border border-ns-primary/20' 
                 : 'text-ns-text-secondary hover:text-ns-text-primary hover:bg-ns-surface-hover/60 border border-transparent'
@@ -520,7 +523,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
       ))}
       {editor.isActive('table') && (
         <>
-          <div className="w-px h-5 bg-ns-border mx-1" />
+          <div className="w-px h-5 bg-ns-border mx-1 shrink-0" />
           {[
             { icon: Columns3, title: 'Sütun ekle', onClick: () => editor.chain().focus().addColumnAfter().run() },
             { icon: Minus, title: 'Sütun sil', onClick: () => editor.chain().focus().deleteColumn().run() },
@@ -535,7 +538,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
               onMouseDown={(e) => e.preventDefault()}
               onClick={btn.onClick}
               title={btn.title}
-              className="p-1.5 rounded-lg transition-all text-ns-text-secondary hover:text-ns-text-primary hover:bg-ns-surface-hover/60 border border-transparent"
+              className="shrink-0 p-1.5 rounded-lg transition-all text-ns-text-secondary hover:text-ns-text-primary hover:bg-ns-surface-hover/60 border border-transparent"
             >
               <btn.icon className="w-4 h-4" />
             </button>
@@ -590,6 +593,15 @@ export const Editor: React.FC<EditorProps> = ({ note, onUpdate, folderPathStr })
 
   // Auto-save debouncing for content changes
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+      inlineAiRequestRef.current += 1;
+    };
+  }, []);
 
   const scheduleTitleUpdate = (newTitle: string) => {
     setLocalTitle(newTitle);
@@ -714,7 +726,7 @@ export const Editor: React.FC<EditorProps> = ({ note, onUpdate, folderPathStr })
     content: note.content,
     editorProps: {
       attributes: {
-        class: 'notisight-editor-prose prose prose-invert prose-zinc max-w-none text-ns-text-primary leading-relaxed outline-none min-h-[500px] pb-32 focus:outline-none',
+        class: 'notisight-editor-prose prose prose-invert prose-zinc max-w-none text-ns-text-primary leading-relaxed outline-none min-h-[calc(100dvh-18rem)] pb-28 focus:outline-none md:min-h-[500px] md:pb-32',
       },
       handleKeyDown: (view, event) => {
         // Handle keyboard navigation of active slash menu list
@@ -841,6 +853,8 @@ export const Editor: React.FC<EditorProps> = ({ note, onUpdate, folderPathStr })
       }
     },
     onUpdate: ({ editor }) => {
+      if (!isTiptapEditorReady(editor)) return;
+
       // Analyze current line sequence to detect "/" triggers or search parameters
       const { selection } = editor.state;
       const pos = selection.$from;
@@ -892,6 +906,7 @@ export const Editor: React.FC<EditorProps> = ({ note, onUpdate, folderPathStr })
         clearTimeout(saveTimeoutRef.current);
       }
       saveTimeoutRef.current = setTimeout(() => {
+        if (!isTiptapEditorReady(editor)) return;
         onUpdate(note.id, { content: editor.getHTML() });
       }, 600);
     },
@@ -944,11 +959,15 @@ export const Editor: React.FC<EditorProps> = ({ note, onUpdate, folderPathStr })
       },
     },
     onUpdate: ({ editor }) => {
+      if (!isTiptapEditorReady(editor)) return;
       scheduleTitleUpdate(editor.getText());
     },
   });
 
-  const getEditorBySource = (source: 'title' | 'body') => source === 'title' ? titleEditor : editor;
+  const getEditorBySource = (source: 'title' | 'body') => {
+    const selectedEditor = source === 'title' ? titleEditor : editor;
+    return isTiptapEditorReady(selectedEditor) ? selectedEditor : null;
+  };
 
   const clearInlineAi = (cancelRequest = true) => {
     if (cancelRequest) {
@@ -960,7 +979,7 @@ export const Editor: React.FC<EditorProps> = ({ note, onUpdate, folderPathStr })
   };
 
   const getSurroundingText = (activeEditor: any, from: number, to: number) => {
-    if (!activeEditor) return '';
+    if (!isTiptapEditorReady(activeEditor)) return '';
     const start = Math.max(0, from - 500);
     const end = Math.min(activeEditor.state.doc.content.size, to + 500);
     return activeEditor.state.doc.textBetween(start, end, ' ');
@@ -971,7 +990,7 @@ export const Editor: React.FC<EditorProps> = ({ note, onUpdate, folderPathStr })
     activeEditor: any,
     cancelInlineAi = true
   ) => {
-    if (!activeEditor) return false;
+    if (!isTiptapEditorReady(activeEditor)) return false;
 
     const { selection } = activeEditor.state;
     if (selection.empty) return false;
@@ -1005,7 +1024,7 @@ export const Editor: React.FC<EditorProps> = ({ note, onUpdate, folderPathStr })
 
   // Track text selection changes dynamically to align the AI/format command popover
   useEffect(() => {
-    if (!editor) return;
+    if (!isTiptapEditorReady(editor)) return;
 
     const handleSelection = () => {
       const { selection } = editor.state;
@@ -1027,7 +1046,7 @@ export const Editor: React.FC<EditorProps> = ({ note, onUpdate, folderPathStr })
   }, [editor, titleEditor]);
 
   useEffect(() => {
-    if (!titleEditor) return;
+    if (!isTiptapEditorReady(titleEditor)) return;
 
     const handleSelection = () => {
       const { selection } = titleEditor.state;
@@ -1057,7 +1076,7 @@ export const Editor: React.FC<EditorProps> = ({ note, onUpdate, folderPathStr })
   }, [note.title]);
 
   useEffect(() => {
-    if (!titleEditor) return;
+    if (!isTiptapEditorReady(titleEditor)) return;
     const currentTitle = titleEditor.getText();
     if (currentTitle === note.title) return;
 
@@ -1083,8 +1102,8 @@ export const Editor: React.FC<EditorProps> = ({ note, onUpdate, folderPathStr })
       }
 
       const clickedInEditor =
-        editor?.view.dom.contains(target) ||
-        titleEditor?.view.dom.contains(target);
+        (isTiptapEditorReady(editor) && editor.view.dom.contains(target)) ||
+        (isTiptapEditorReady(titleEditor) && titleEditor.view.dom.contains(target));
 
       if (selectionMenuRef.current && !selectionMenuRef.current.contains(target) && !clickedInEditor) {
         setSelectionMenu(null);
@@ -1094,8 +1113,8 @@ export const Editor: React.FC<EditorProps> = ({ note, onUpdate, folderPathStr })
 
     const syncSelectionAfterMouseUp = (e: MouseEvent) => {
       const target = e.target as Node;
-      const clickedInTitle = Boolean(titleEditor?.view.dom.contains(target));
-      const clickedInBody = Boolean(editor?.view.dom.contains(target));
+      const clickedInTitle = isTiptapEditorReady(titleEditor) && titleEditor.view.dom.contains(target);
+      const clickedInBody = isTiptapEditorReady(editor) && editor.view.dom.contains(target);
 
       if (!clickedInTitle && !clickedInBody) return;
 
@@ -1131,7 +1150,7 @@ export const Editor: React.FC<EditorProps> = ({ note, onUpdate, folderPathStr })
     }
 
     const activeEditor = getEditorBySource(inlineAi.source);
-    if (!activeEditor) return;
+    if (!isTiptapEditorReady(activeEditor)) return;
 
     setInlineAiPreviewDecoration(activeEditor, null);
     activeEditor
@@ -1168,10 +1187,12 @@ export const Editor: React.FC<EditorProps> = ({ note, onUpdate, folderPathStr })
     return () => document.removeEventListener('keydown', handleInlineAiKeyDown, true);
   }, [inlineAi, editor, titleEditor]);
 
-  if (!editor || !titleEditor) return null;
+  if (!isTiptapEditorReady(editor) || !isTiptapEditorReady(titleEditor)) return null;
 
   // Slash commands execution with content cleanup
   const executeSlashCommand = (cmd: string) => {
+    if (!isTiptapEditorReady(editor)) return;
+
     const { selection } = editor.state;
     const pos = selection.$from;
     const blockText = pos.parent.textBetween(0, pos.parentOffset, null, null);
@@ -1318,22 +1339,30 @@ export const Editor: React.FC<EditorProps> = ({ note, onUpdate, folderPathStr })
       : []),
   ];
   const isRewritePreview = inlineAi?.status === 'preview' && inlineAi.action === 'rewrite';
+  const isCompactEditor = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
   const selectionMenuStyle = selectionMenu
     ? {
         top: isRewritePreview
           ? Math.max((articleRef.current?.scrollTop ?? 0) + 8, selectionMenu.y - 86)
           : selectionMenu.y,
-        left: Math.max(16, Math.min(selectionMenu.x, 500)),
+        left: isCompactEditor ? 16 : Math.max(16, Math.min(selectionMenu.x, 500)),
+      }
+    : undefined;
+  const slashMenuStyle = slashMenu
+    ? {
+        top: slashMenu.y,
+        left: isCompactEditor ? 16 : Math.min(slashMenu.x, 400),
+        maxHeight: SLASH_MENU_MAX_HEIGHT,
       }
     : undefined;
 
   return (
     <main className="flex-1 flex flex-col bg-ns-bg-primary h-full relative" ref={containerRef}>
-      <header className="h-12 border-b border-ns-border flex items-center px-8 gap-4 justify-between shrink-0">
-        <div className="flex items-center gap-2 text-ns-text-muted text-xs">
-          <span>{folderPathStr || 'çalışma alanı'}</span>
-          <span>/</span>
-          <span className="text-ns-text-primary">{localTitle || 'İsimsiz'}</span>
+      <header className="h-10 md:h-12 border-b border-ns-border flex items-center px-4 md:px-8 gap-4 justify-between shrink-0 bg-ns-bg-primary/95">
+        <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-ns-text-muted text-[11px] md:text-xs">
+          <span className="truncate">{folderPathStr || 'çalışma alanı'}</span>
+          <span className="shrink-0">/</span>
+          <span className="truncate text-ns-text-primary">{localTitle || 'İsimsiz'}</span>
         </div>
         <div className="flex items-center gap-2">
           {inlineAi?.status === 'loading' && (
@@ -1345,8 +1374,8 @@ export const Editor: React.FC<EditorProps> = ({ note, onUpdate, folderPathStr })
         </div>
       </header>
 
-      <article className="notisight-editor-scroll flex-1 px-4 py-6 md:px-16 md:py-12 overflow-y-auto relative" ref={articleRef}>
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      <article className="notisight-editor-scroll flex-1 px-4 pt-4 pb-6 md:px-16 md:py-12 overflow-y-auto relative" ref={articleRef}>
+        <motion.div className="mx-auto w-full max-w-3xl md:max-w-none" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           
           <EditorContent editor={titleEditor} />
 
@@ -1419,7 +1448,7 @@ export const Editor: React.FC<EditorProps> = ({ note, onUpdate, folderPathStr })
                   Açıkla
                 </button>
                 {inlineAi && (
-                  <div className="mt-1 w-full min-w-64 rounded-xl border border-ns-border/70 bg-ns-bg-primary/72 p-2.5 text-xs leading-5 text-ns-text-secondary">
+                  <div className="mt-1 w-full min-w-0 rounded-xl border border-ns-border/70 bg-ns-bg-primary/72 p-2.5 text-xs leading-5 text-ns-text-secondary sm:min-w-64">
                     {inlineAi.status === 'loading' && (
                       <div className="flex items-center gap-2 text-ns-primary">
                         <Sparkles className="h-3.5 w-3.5 animate-spin" />
@@ -1459,8 +1488,8 @@ export const Editor: React.FC<EditorProps> = ({ note, onUpdate, folderPathStr })
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className="absolute bg-ns-bg-secondary/95 border border-ns-border rounded-xl p-2 w-64 shadow-2xl z-50 flex flex-col gap-1 backdrop-blur-md overflow-y-auto"
-                style={{ top: slashMenu.y, left: Math.min(slashMenu.x, 400), maxHeight: SLASH_MENU_MAX_HEIGHT }}
+                className="absolute bg-ns-bg-secondary/95 border border-ns-border rounded-xl p-2 w-[min(16rem,calc(100vw-2rem))] shadow-2xl z-50 flex flex-col gap-1 backdrop-blur-md overflow-y-auto"
+                style={slashMenuStyle}
               >
                 <div className="px-2 py-1 flex items-center justify-between text-[10px] font-bold text-ns-text-muted uppercase tracking-wider mb-1">
                   <span>Temel bloklar</span>

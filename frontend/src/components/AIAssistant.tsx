@@ -8,6 +8,7 @@ interface AIAssistantProps {
   onCollapse: () => void;
   onSelectNote?: (noteId: string) => void;
   width?: number;
+  mobileFullScreen?: boolean;
 }
 
 interface Citation {
@@ -44,23 +45,97 @@ interface ChatSession {
 }
 
 const providerDefaultModels: Record<number, string> = {
-  0: 'gpt-4o-mini',
+  0: 'gpt-5-mini',
   1: 'qwen-plus',
-  2: 'claude-3-haiku-20240307',
-  3: 'gemini-1.5-flash',
+  2: 'claude-sonnet-4-5-20250929',
+  3: 'gemini-2.5-flash',
   4: 'deepseek-chat',
-  5: 'openai/gpt-4o-mini',
-  6: 'grok-beta'
+  5: 'openai/gpt-5-mini',
+  6: 'grok-4'
 };
 
 const modelsByProvider: Record<number, { id: string; name: string }[]> = {
-  0: [{ id: 'gpt-4o', name: 'GPT-4o' }, { id: 'gpt-4o-mini', name: 'GPT-4o Mini' }],
-  1: [{ id: 'qwen-max', name: 'Qwen Max' }, { id: 'qwen-plus', name: 'Qwen Plus' }],
-  2: [{ id: 'claude-3-5-sonnet-20240620', name: 'Claude 3.5 Sonnet' }, { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku' }],
-  3: [{ id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' }, { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' }, { id: 'gemini-1.5-flash-8b', name: 'Gemini 1.5 Flash-8B' }],
-  4: [{ id: 'deepseek-chat', name: 'DeepSeek Chat' }, { id: 'deepseek-coder', name: 'DeepSeek Coder' }],
-  5: [{ id: 'openai/gpt-4o-mini', name: 'OpenRouter: GPT-4o Mini' }, { id: 'anthropic/claude-3.5-sonnet', name: 'OpenRouter: Claude 3.5 Sonnet' }, { id: 'google/gemini-flash-1.5', name: 'OpenRouter: Gemini Flash 1.5' }],
-  6: [{ id: 'grok-beta', name: 'Grok Beta' }, { id: 'grok-vision-beta', name: 'Grok Vision Beta' }, { id: 'grok-2', name: 'Grok 2' }]
+  0: [
+    { id: 'gpt-5', name: 'GPT-5' },
+    { id: 'gpt-5-mini', name: 'GPT-5 Mini' },
+    { id: 'gpt-5-nano', name: 'GPT-5 Nano' },
+    { id: 'gpt-4.1', name: 'GPT-4.1' },
+    { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini' },
+    { id: 'gpt-4.1-nano', name: 'GPT-4.1 Nano' },
+    { id: 'gpt-4o', name: 'GPT-4o' },
+    { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
+    { id: 'o3', name: 'o3' },
+    { id: 'o4-mini', name: 'o4 Mini' }
+  ],
+  1: [
+    { id: 'qwen-max', name: 'Qwen Max' },
+    { id: 'qwen-plus', name: 'Qwen Plus' },
+    { id: 'qwen-turbo', name: 'Qwen Turbo' },
+    { id: 'qwen-long', name: 'Qwen Long' },
+    { id: 'qwen3-max', name: 'Qwen3 Max' },
+    { id: 'qwen3-plus', name: 'Qwen3 Plus' },
+    { id: 'qwen3-turbo', name: 'Qwen3 Turbo' },
+    { id: 'qwen3-coder-plus', name: 'Qwen3 Coder Plus' },
+    { id: 'qwq-plus', name: 'QwQ Plus' },
+    { id: 'qvq-plus', name: 'QvQ Plus' }
+  ],
+  2: [
+    { id: 'claude-opus-4-1-20250805', name: 'Claude Opus 4.1' },
+    { id: 'claude-sonnet-4-5-20250929', name: 'Claude Sonnet 4.5' },
+    { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4' },
+    { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5' },
+    { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet' },
+    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' },
+    { id: 'claude-3-5-sonnet-20240620', name: 'Claude 3.5 Sonnet Eski' },
+    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku' },
+    { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus' },
+    { id: 'claude-3-sonnet-20240229', name: 'Claude 3 Sonnet' },
+    { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku' }
+  ],
+  3: [
+    { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
+    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+    { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite' },
+    { id: 'gemini-2.5-pro-preview-06-05', name: 'Gemini 2.5 Pro Preview' },
+    { id: 'gemini-2.5-flash-preview-05-20', name: 'Gemini 2.5 Flash Preview' },
+    { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
+    { id: 'gemini-2.0-flash-lite', name: 'Gemini 2.0 Flash Lite' },
+    { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
+    { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
+    { id: 'gemini-1.5-flash-8b', name: 'Gemini 1.5 Flash-8B' }
+  ],
+  4: [
+    { id: 'deepseek-chat', name: 'DeepSeek Chat' },
+    { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner' }
+  ],
+  5: [
+    { id: 'openai/gpt-5', name: 'OpenRouter: GPT-5' },
+    { id: 'openai/gpt-5-mini', name: 'OpenRouter: GPT-5 Mini' },
+    { id: 'openai/gpt-4.1', name: 'OpenRouter: GPT-4.1' },
+    { id: 'openai/gpt-4.1-mini', name: 'OpenRouter: GPT-4.1 Mini' },
+    { id: 'anthropic/claude-sonnet-4.5', name: 'OpenRouter: Claude Sonnet 4.5' },
+    { id: 'anthropic/claude-sonnet-4', name: 'OpenRouter: Claude Sonnet 4' },
+    { id: 'google/gemini-2.5-pro', name: 'OpenRouter: Gemini 2.5 Pro' },
+    { id: 'google/gemini-2.5-flash', name: 'OpenRouter: Gemini 2.5 Flash' },
+    { id: 'deepseek/deepseek-chat', name: 'OpenRouter: DeepSeek Chat' },
+    { id: 'deepseek/deepseek-r1', name: 'OpenRouter: DeepSeek R1' },
+    { id: 'qwen/qwen3-plus', name: 'OpenRouter: Qwen3 Plus' },
+    { id: 'x-ai/grok-4', name: 'OpenRouter: Grok 4' },
+    { id: 'meta-llama/llama-3.3-70b-instruct', name: 'OpenRouter: Llama 3.3 70B' },
+    { id: 'openai/gpt-4o-mini', name: 'OpenRouter: GPT-4o Mini' },
+    { id: 'anthropic/claude-3.5-sonnet', name: 'OpenRouter: Claude 3.5 Sonnet' },
+    { id: 'google/gemini-flash-1.5', name: 'OpenRouter: Gemini Flash 1.5' }
+  ],
+  6: [
+    { id: 'grok-4', name: 'Grok 4' },
+    { id: 'grok-3', name: 'Grok 3' },
+    { id: 'grok-3-mini', name: 'Grok 3 Mini' },
+    { id: 'grok-2-1212', name: 'Grok 2' },
+    { id: 'grok-2-vision-1212', name: 'Grok 2 Vision' },
+    { id: 'grok-2', name: 'Grok 2' },
+    { id: 'grok-beta', name: 'Grok Beta' },
+    { id: 'grok-vision-beta', name: 'Grok Vision Beta' }
+  ]
 };
 
 type MarkdownSegment =
@@ -201,7 +276,7 @@ const MarkdownContent = ({ msg }: { msg: Message }) => {
   );
 };
 
-export const AIAssistant: React.FC<AIAssistantProps> = ({ onCollapse, onSelectNote, width }) => {
+export const AIAssistant: React.FC<AIAssistantProps> = ({ onCollapse, onSelectNote, width, mobileFullScreen = false }) => {
   const [sessions, setSessions] = useState<ChatSession[]>([{ id: 'default', title: 'Sohbet 1', messages: [] }]);
   const [openSessionIds, setOpenSessionIds] = useState<string[]>(() => {
     try {
@@ -344,6 +419,18 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onCollapse, onSelectNo
     localStorage.setItem('notisight_ai_custom_model', customModelId);
     localStorage.setItem('notisight_ai_is_custom_model', String(isCustomModel));
   }, [selectedProvider, selectedModel, customModelId, isCustomModel]);
+
+  useEffect(() => {
+    if (isCustomModel) return;
+
+    const availableModels = modelsByProvider[selectedProvider] || [];
+    if (availableModels.length === 0) return;
+
+    const hasSelectedModel = availableModels.some(model => model.id === selectedModel);
+    if (!hasSelectedModel) {
+      setSelectedModel(providerDefaultModels[selectedProvider] || availableModels[0].id);
+    }
+  }, [selectedProvider, selectedModel, isCustomModel]);
 
   useEffect(() => {
     if (activeSessionId && !activeSessionId.startsWith('new_') && activeSessionId !== 'default' && activeSession.messages.length === 0) {
@@ -607,8 +694,8 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onCollapse, onSelectNo
 
   return (
     <aside 
-      className={`absolute right-0 md:relative z-20 h-full min-w-0 overflow-hidden shrink-0 flex flex-col ns-panel-shell shadow-2xl shadow-black/20 backdrop-blur-xl md:my-2 md:mr-2 md:h-[calc(100%-1rem)] md:rounded-3xl md:shadow-none transition-all ${width ? '' : 'w-[85%] sm:w-[320px] md:w-[307px]'}`}
-      style={width ? { width: `${width}px` } : undefined}
+      className={`${mobileFullScreen ? 'relative w-full' : 'absolute right-0 shadow-2xl shadow-black/20'} md:relative z-20 h-full min-w-0 overflow-hidden shrink-0 flex flex-col ns-panel-shell backdrop-blur-xl md:my-2 md:mr-2 md:h-[calc(100%-1rem)] md:rounded-3xl md:shadow-none transition-all ${mobileFullScreen ? '' : width ? '' : 'w-[85%] sm:w-[320px] md:w-[307px]'}`}
+      style={!mobileFullScreen && width ? { width: `${width}px` } : undefined}
     >
       <div className="h-12 border-b ns-hairline flex items-center justify-between px-4 shrink-0 bg-ns-bg-primary/70 backdrop-blur-xl">
         <div className="flex items-center gap-2">

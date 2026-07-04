@@ -37,12 +37,35 @@ public static class ServiceCollectionExtensions
         services.AddHttpContextAccessor();
         services.AddDataProtection();
         services.AddControllers();
-        var allowedOrigins = GetAllowedCorsOrigins(configuration, environment);
+        var allowedOrigins = GetAllowedCorsOrigins(configuration);
+        if (allowedOrigins.Length == 0 && !environment.IsDevelopment())
+        {
+            throw new InvalidOperationException("Cors:AllowedOrigins must be configured outside Development.");
+        }
+
         services.AddCors(options =>
         {
             options.AddDefaultPolicy(builder =>
             {
-                builder.WithOrigins(allowedOrigins)
+                if (allowedOrigins.Length > 0)
+                {
+                    builder.WithOrigins(allowedOrigins)
+                           .AllowAnyMethod()
+                           .AllowAnyHeader()
+                           .AllowCredentials();
+                    return;
+                }
+
+                if (environment.IsDevelopment())
+                {
+                    builder.SetIsOriginAllowed(IsDevelopmentCorsOrigin)
+                           .AllowAnyMethod()
+                           .AllowAnyHeader()
+                           .AllowCredentials();
+                    return;
+                }
+
+                builder.WithOrigins(DevelopmentCorsOrigins)
                        .AllowAnyMethod()
                        .AllowAnyHeader()
                        .AllowCredentials();
@@ -130,7 +153,7 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    private static string[] GetAllowedCorsOrigins(IConfiguration configuration, IHostEnvironment environment)
+    private static string[] GetAllowedCorsOrigins(IConfiguration configuration)
     {
         var origins = configuration
             .GetSection("Cors:AllowedOrigins")
@@ -157,12 +180,39 @@ public static class ServiceCollectionExtensions
             return origins;
         }
 
-        if (environment.IsDevelopment())
+        return origins;
+    }
+
+    private static bool IsDevelopmentCorsOrigin(string origin)
+    {
+        if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
         {
-            return DevelopmentCorsOrigins;
+            return false;
         }
 
-        throw new InvalidOperationException("Cors:AllowedOrigins must be configured outside Development.");
+        if (uri.Scheme is not ("http" or "https"))
+        {
+            return false;
+        }
+
+        var host = uri.Host;
+        if (host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+            host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
+            host.Equals("::1", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return System.Net.IPAddress.TryParse(host, out var ipAddress) && IsPrivateNetworkAddress(ipAddress);
+    }
+
+    private static bool IsPrivateNetworkAddress(System.Net.IPAddress ipAddress)
+    {
+        var bytes = ipAddress.GetAddressBytes();
+        return bytes.Length == 4 &&
+            (bytes[0] == 10 ||
+             (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31) ||
+             (bytes[0] == 192 && bytes[1] == 168));
     }
 
     private static IServiceCollection AddAppOptions(

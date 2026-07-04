@@ -238,7 +238,7 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({ isOpen, 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-ns-bg-secondary border border-ns-border rounded-2xl w-full max-w-md shadow-2xl overflow-hidden relative"
+        className="bg-ns-bg-secondary border border-ns-border rounded-2xl w-full max-w-md max-h-[calc(100dvh-2rem)] shadow-2xl overflow-y-auto relative"
       >
         <div className="flex items-center justify-between p-4 border-b border-ns-border">
           <h2 className="text-sm font-semibold text-ns-text-primary flex items-center gap-2">
@@ -250,7 +250,7 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({ isOpen, 
           </button>
         </div>
 
-        <div className="p-6 flex flex-col items-center">
+        <div className="p-5 sm:p-6 flex flex-col items-center">
           
           {(status === 'idle' || status === 'recording' || status === 'paused') && (
             <div className="w-full flex flex-col items-center gap-8 py-4">

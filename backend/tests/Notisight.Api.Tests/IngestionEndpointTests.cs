@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Notisight.Api.Features.Ingestion.Contracts;
+using Notisight.Api.Features.Notes.Contracts;
 using Notisight.Api.Tests.Infrastructure;
 
 namespace Notisight.Api.Tests;
@@ -93,6 +94,67 @@ public sealed class IngestionEndpointTests : IClassFixture<TestApiFactory>
             Assert.Equal("meeting", chunk.Title);
             Assert.Contains("Recorded transcript", chunk.Content);
         });
+    }
+
+    [Fact]
+    public async Task UploadAudio_WhenTranscriptionFails_StillCreatesAudioNote()
+    {
+        var auth = await _client.RegisterAsync("audio-fallback@example.com", "P@ssw0rd123!", "Audio User");
+        _client.SetBearer(auth.AccessToken);
+        _factory.AudioTranscription.FailWith(new InvalidOperationException("Deepgram API anahtarı doğrulanamadı."));
+
+        using var form = new MultipartFormDataContent();
+        using var content = new ByteArrayContent(CreateMinimalWav());
+        content.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
+        form.Add(content, "file", "fallback.wav");
+
+        var response = await _client.PostAsync("/notes/upload-audio", form);
+
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.True(
+            response.StatusCode == HttpStatusCode.Created,
+            $"Expected Created but got {(int)response.StatusCode}: {body}");
+
+        var uploaded = (await response.Content.ReadFromJsonAsync<UploadedNoteResponse>())!;
+        Assert.Equal("fallback", uploaded.Title);
+        Assert.Equal("audio", uploaded.FileType);
+        Assert.True(uploaded.CharacterCount > 0);
+
+        var note = (await _client.GetFromJsonAsync<NoteResponse>($"/notes/{uploaded.NoteId}"))!;
+        Assert.Contains("transkripsiyon tamamlanamadı", note.Content);
+        Assert.Contains("Deepgram API anahtarı", note.Content);
+    }
+
+    [Fact]
+    public async Task AttachmentFile_RequiresOwnerAccess()
+    {
+        var owner = await _client.RegisterAsync("attachment-owner@example.com", "P@ssw0rd123!", "Attachment Owner");
+        _client.SetBearer(owner.AccessToken);
+
+        var createNoteResponse = await _client.PostAsJsonAsync(
+            "/notes",
+            new NoteRequest("Attachment note", "Private content", null, []));
+        createNoteResponse.EnsureSuccessStatusCode();
+        var note = (await createNoteResponse.Content.ReadFromJsonAsync<NoteResponse>())!;
+
+        using var form = new MultipartFormDataContent();
+        using var image = new ByteArrayContent([0x89, 0x50, 0x4E, 0x47]);
+        image.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        form.Add(image, "file", "private.png");
+
+        var uploadResponse = await _client.PostAsync($"/notes/{note.Id}/attachments", form);
+        uploadResponse.EnsureSuccessStatusCode();
+        var attachment = (await uploadResponse.Content.ReadFromJsonAsync<NoteAttachmentResponse>())!;
+
+        var otherUser = await _client.RegisterAsync("attachment-other@example.com", "P@ssw0rd123!", "Attachment Other");
+        _client.SetBearer(otherUser.AccessToken);
+
+        var otherUserResponse = await _client.GetAsync(attachment.FileUrl);
+        Assert.Equal(HttpStatusCode.NotFound, otherUserResponse.StatusCode);
+
+        _client.DefaultRequestHeaders.Authorization = null;
+        var anonymousResponse = await _client.GetAsync(attachment.FileUrl);
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymousResponse.StatusCode);
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition, string because)

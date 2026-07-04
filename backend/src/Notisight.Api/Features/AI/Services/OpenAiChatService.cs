@@ -156,13 +156,11 @@ public class OpenAiChatService(
             new { role = "user", content = $"KULLANICI SORGUSU: {query}" }
         };
 
-        var requestBody = new
-        {
-            model = config.ModelId,
+        var requestBody = CreateChatRequest(
+            config.ModelId,
             messages,
-            temperature = 0.1,
-            response_format = new { type = "json_object" }
-        };
+            temperature: 0.1,
+            responseFormat: new { type = "json_object" });
 
         var jsonResponse = await SendToOpenAiAsync(requestBody, cancellationToken);
 
@@ -244,12 +242,7 @@ public class OpenAiChatService(
 
         messages.Add(new { role = "user", content = userMessage });
 
-        var requestBody = new
-        {
-            model = config.ModelId,
-            messages,
-            temperature = 0.7
-        };
+        var requestBody = CreateChatRequest(config.ModelId, messages, temperature: 0.7);
 
         return await SendToOpenAiAsync(requestBody, cancellationToken);
     }
@@ -279,13 +272,7 @@ public class OpenAiChatService(
 
         messages.Add(new { role = "user", content = userMessage });
 
-        var requestBody = new
-        {
-            model = config.ModelId,
-            messages,
-            temperature = 0.7,
-            stream = true
-        };
+        var requestBody = CreateChatRequest(config.ModelId, messages, temperature: 0.7, stream: true);
 
         return SendToOpenAiStreamAsync(requestBody, cancellationToken);
     }
@@ -368,12 +355,7 @@ public class OpenAiChatService(
 
         messages.Add(new { role = "user", content = currentMessage });
 
-        var requestBody = new
-        {
-            model = config.ModelId,
-            messages,
-            temperature = 0.1
-        };
+        var requestBody = CreateChatRequest(config.ModelId, messages, temperature: 0.1);
 
         return await SendToOpenAiAsync(requestBody, cancellationToken);
     }
@@ -456,13 +438,7 @@ public class OpenAiChatService(
 
         messages.Add(new { role = "user", content = currentMessage });
 
-        var requestBody = new
-        {
-            model = config.ModelId,
-            messages,
-            temperature = 0.1,
-            stream = true
-        };
+        var requestBody = CreateChatRequest(config.ModelId, messages, temperature: 0.1, stream: true);
 
         return SendToOpenAiStreamAsync(requestBody, cancellationToken);
     }
@@ -479,12 +455,7 @@ public class OpenAiChatService(
             new { role = "user", content = question }
         };
 
-        var requestBody = new
-        {
-            model = config.ModelId,
-            messages,
-            temperature = 0.5
-        };
+        var requestBody = CreateChatRequest(config.ModelId, messages, temperature: 0.5);
 
         var response = await SendToOpenAiAsync(requestBody, cancellationToken);
         return response?.Trim('\"', ' ', '\n', '\r');
@@ -503,6 +474,57 @@ public class OpenAiChatService(
             Notisight.Api.Features.Settings.Enums.ProviderType.Grok => "https://api.x.ai/v1",
             _ => "https://api.openai.com/v1"
         };
+    }
+
+    private static Dictionary<string, object?> CreateChatRequest(
+        string modelId,
+        List<object> messages,
+        double? temperature = null,
+        object? responseFormat = null,
+        bool stream = false)
+    {
+        var body = new Dictionary<string, object?>
+        {
+            ["model"] = modelId,
+            ["messages"] = messages
+        };
+
+        if (temperature.HasValue && SupportsTemperature(modelId))
+        {
+            body["temperature"] = temperature.Value;
+        }
+
+        if (responseFormat is not null && SupportsResponseFormat(modelId))
+        {
+            body["response_format"] = responseFormat;
+        }
+
+        if (stream)
+        {
+            body["stream"] = true;
+        }
+
+        return body;
+    }
+
+    private static bool SupportsTemperature(string modelId)
+    {
+        var normalized = modelId.Trim().ToLowerInvariant();
+        return !normalized.Contains("gpt-5") &&
+               !normalized.Contains("claude") &&
+               !normalized.Contains("/o1") &&
+               !normalized.Contains("/o3") &&
+               !normalized.Contains("/o4") &&
+               !normalized.StartsWith("o1", StringComparison.Ordinal) &&
+               !normalized.StartsWith("o3", StringComparison.Ordinal) &&
+               !normalized.StartsWith("o4", StringComparison.Ordinal);
+    }
+
+    private static bool SupportsResponseFormat(string modelId)
+    {
+        var normalized = modelId.Trim().ToLowerInvariant();
+        return !normalized.Contains("gpt-5") &&
+               !normalized.Contains("claude");
     }
 
     private async IAsyncEnumerable<string> EmptyStreamWithMessageAsync(string message)
