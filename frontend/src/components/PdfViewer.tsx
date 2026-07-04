@@ -61,15 +61,15 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ note, folderPathStr }) => 
   return (
     <div className="flex-1 flex flex-col bg-ns-bg-primary h-full relative">
       <header className="h-12 border-b border-ns-border flex items-center px-4 md:px-8 gap-4 justify-between shrink-0 bg-ns-bg-primary/95 backdrop-blur-sm z-10">
-        <div className="flex items-center gap-2 text-ns-text-muted text-xs truncate">
+        <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-ns-text-muted text-xs">
           <span className="truncate">{folderPathStr || 'çalışma alanı'}</span>
-          <span>/</span>
-          <BookOpen className="w-3.5 h-3.5" />
+          <span className="shrink-0">/</span>
+          <BookOpen className="w-3.5 h-3.5 shrink-0" />
           <span className="text-ns-text-primary truncate font-medium">{note.title || 'İsimsiz PDF'}</span>
         </div>
         
         {numPages && (
-          <div className="flex items-center gap-2 bg-ns-bg-secondary rounded-lg p-1 border border-ns-border">
+          <div className="flex shrink-0 items-center gap-2 bg-ns-bg-secondary rounded-lg p-1 border border-ns-border">
             <button 
               onClick={() => setScale(s => Math.max(0.5, s - 0.1))}
               className="p-1 hover:bg-ns-surface-hover rounded text-ns-text-secondary hover:text-ns-text-primary transition-colors"
@@ -85,7 +85,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ note, folderPathStr }) => 
         )}
       </header>
       
-      <div className="flex-1 w-full overflow-auto bg-ns-bg-secondary flex justify-center p-4 md:p-8 no-scrollbar">
+      <div className="flex-1 w-full overflow-auto bg-ns-bg-secondary flex justify-start md:justify-center p-3 md:p-8 no-scrollbar">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-ns-text-muted">
             <Loader2 className="w-8 h-8 animate-spin text-ns-primary" />
@@ -96,7 +96,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ note, folderPathStr }) => 
             <span className="text-sm font-medium">{error}</span>
           </div>
         ) : pdfData ? (
-          <div className="w-full flex justify-center pb-8">
+          <div className="w-full min-w-max flex justify-center pb-8">
             <Document
               file={pdfData}
               onLoadSuccess={onDocumentLoadSuccess}
@@ -107,7 +107,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ note, folderPathStr }) => 
                 </div>
               }
             >
-              <div className="flex flex-col items-center gap-6">
+              <div className="flex min-w-max flex-col items-center gap-6">
                 {numPages && Array.from(new Array(numPages), (el, index) => (
                   <div key={`page_${index + 1}`} className="shadow-2xl rounded-lg overflow-hidden border border-ns-border bg-white ring-1 ring-black/5">
                     <Page 

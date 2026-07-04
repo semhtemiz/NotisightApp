@@ -36,7 +36,7 @@ Uygulama, klasik not alma ozelliklerini Retrieval-Augmented Generation (RAG) mim
 | PDF | UglyToad.PdfPig, react-pdf |
 | AI Chat | OpenAI-compatible chat completions API |
 | Embedding | Gemini embedding modeli |
-| Ses transkripsiyon | Gemini inline audio |
+| Ses transkripsiyon | Deepgram API |
 | Vektor veritabani | Qdrant |
 | Dosya depolama | Cloudflare R2 / S3 API |
 | Test | xUnit, WebApplicationFactory, SQLite in-memory |

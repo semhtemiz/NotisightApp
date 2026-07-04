@@ -29,7 +29,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]">
+      <div className="fixed inset-0 z-50 flex items-start justify-center px-3 pt-4 sm:px-0 sm:pt-[15vh]">
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -42,7 +42,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
           initial={{ opacity: 0, scale: 0.95, y: -20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: -20 }}
-          className="relative w-full max-w-xl mx-4 bg-ns-bg-secondary/90 backdrop-blur-xl border border-ns-border/50 shadow-2xl overflow-hidden"
+          className="relative w-full max-w-xl mx-0 sm:mx-4 max-h-[calc(100dvh-2rem)] bg-ns-bg-secondary/90 backdrop-blur-xl border border-ns-border/50 shadow-2xl overflow-hidden"
           style={{ borderRadius: '16px' }}
         >
           <div className="flex items-center px-4 py-3 border-b border-ns-border">

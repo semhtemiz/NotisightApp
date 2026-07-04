@@ -26,7 +26,7 @@
 
 ## Frontend Scaffold
 
-- [x] Next.js 14 App Router projesi `frontend/` altinda olusturuldu.
+- [x] Vite + React projesi `frontend/` altinda olusturuldu.
 - [x] TypeScript aktif.
 - [x] Tailwind CSS aktif.
 - [x] Local dev server calisiyor.

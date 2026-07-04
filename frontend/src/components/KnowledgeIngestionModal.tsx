@@ -106,7 +106,7 @@ export const KnowledgeIngestionModal: React.FC<KnowledgeIngestionModalProps> = (
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          className="relative w-full max-w-md bg-ns-bg-secondary border border-ns-primary/30 shadow-[0_0_40px_-10px_rgba(34,197,94,0.3)] rounded-2xl overflow-hidden p-6"
+          className="relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto bg-ns-bg-secondary border border-ns-primary/30 shadow-[0_0_40px_-10px_rgba(34,197,94,0.3)] rounded-2xl p-5 sm:p-6"
         >
           <button 
             onClick={onClose}

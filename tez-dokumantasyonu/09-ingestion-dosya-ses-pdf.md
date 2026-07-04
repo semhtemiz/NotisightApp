@@ -35,7 +35,7 @@ sequenceDiagram
 flowchart TD
     A[Ses dosyasi veya MediaRecorder kaydi] --> B[Upload audio endpoint]
     B --> C[AudioTranscriptionService]
-    C --> D[Gemini inline audio transcription]
+    C --> D[Deepgram audio transcription]
     D --> E[Transcript]
     E --> F[SQL Note]
     F --> G[ChunkAudio]

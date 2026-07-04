@@ -4,6 +4,8 @@ import path from 'path';
 import {defineConfig, loadEnv} from 'vite';
 
 const LOCAL_API_URL_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:\/|$)/i;
+const API_PROXY_TARGET = 'http://localhost:5228';
+const API_PROXY_PREFIXES = ['/api', '/auth', '/ai', '/notes', '/folders', '/tags', '/health'];
 
 const validateProductionApiUrl = (mode: string, apiUrl?: string) => {
   if (mode !== 'production') {
@@ -33,6 +35,16 @@ export default defineConfig(({ mode }) => {
     server: {
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      proxy: Object.fromEntries(
+        API_PROXY_PREFIXES.map(prefix => [
+          prefix,
+          {
+            target: API_PROXY_TARGET,
+            changeOrigin: true,
+            secure: false,
+          },
+        ])
+      ),
     },
     build: {
       chunkSizeWarningLimit: 700,

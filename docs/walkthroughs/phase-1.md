@@ -5,7 +5,7 @@
 - Monorepo klasor yapisi kuruldu.
 - `backend/` altinda .NET 8 Web API projesi olusturuldu.
 - `backend/tests/` altinda xUnit test projesi olusturuldu ve solution'a baglandi.
-- `frontend/` altinda Next.js 14 App Router, TypeScript ve Tailwind CSS projesi olusturuldu.
+- `frontend/` altinda Vite, React, TypeScript ve Tailwind CSS projesi olusturuldu.
 - Backend icin `appsettings.Example.json` eklendi.
 - Frontend icin `.env.example` ve `.env.development` eklendi.
 - Klasor kokunde `.gitignore`, `NuGet.Config` ve solution dosyasi hazirlandi.

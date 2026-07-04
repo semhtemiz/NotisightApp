@@ -109,16 +109,16 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({ note, folderPathStr })
 
   return (
     <div className="flex-1 flex flex-col bg-ns-bg-primary h-full relative">
-      <header className="h-12 border-b border-ns-border flex items-center px-8 gap-4 justify-between shrink-0">
-        <div className="flex items-center gap-2 text-ns-text-muted text-xs">
-          <span>{folderPathStr || 'çalışma alanı'}</span>
-          <span>/</span>
-          <span className="text-ns-text-primary">{note.title || 'İsimsiz Ses'}</span>
+      <header className="h-12 border-b border-ns-border flex items-center px-4 md:px-8 gap-4 justify-between shrink-0">
+        <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-ns-text-muted text-xs">
+          <span className="truncate">{folderPathStr || 'çalışma alanı'}</span>
+          <span className="shrink-0">/</span>
+          <span className="truncate text-ns-text-primary">{note.title || 'İsimsiz Ses'}</span>
         </div>
       </header>
       <div className="flex-1 flex flex-col items-center justify-start w-full h-full p-4 sm:p-8 overflow-y-auto gap-8">
          
-         <div className="w-full max-w-2xl bg-ns-bg-secondary p-8 sm:p-12 rounded-3xl border border-ns-border shadow-2xl flex flex-col items-center shrink-0">
+         <div className="w-full max-w-2xl bg-ns-bg-secondary p-5 sm:p-12 rounded-3xl border border-ns-border shadow-2xl flex flex-col items-center shrink-0">
              
              <div className="w-20 h-20 sm:w-24 sm:h-24 bg-ns-primary/10 rounded-full flex items-center justify-center mb-6 relative">
                  {isPlaying && (
