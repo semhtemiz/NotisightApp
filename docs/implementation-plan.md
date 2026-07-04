@@ -13,7 +13,7 @@ Monorepo iskeletinin, backend/frontend projelerinin ve ortam ayriminin kurulmasi
 1. Git deposu olusturulur ve `dev` ile `live` branch akisi tanimlanir.
 2. Kok dizinde `.gitignore`, `README.md`, `docs/` ve temel klasor yapisi hazirlanir.
 3. `backend/` altinda .NET 8 ASP.NET Core Web API projesi olusturulur.
-4. `frontend/` altinda Next.js 14 App Router, TypeScript ve Tailwind CSS projesi olusturulur.
+4. `frontend/` altinda Vite, React, TypeScript ve Tailwind CSS projesi olusturulur.
 5. Backend icin `appsettings.Development.json` local kullanima ayrilir.
 6. Frontend icin `.env.development` local kullanima ayrilir.
 7. Repoya hassas veri girmeden `.env.example` ve `appsettings.example.json` sablonlari eklenir.
@@ -37,7 +37,7 @@ Qdrant__VectorSize=768
 Frontend:
 
 ```text
-NEXT_PUBLIC_API_URL=
+VITE_API_URL=
 ```
 
 ## 2. Faz: Backend Cekirdegi, Veritabani ve Auth
@@ -116,7 +116,7 @@ Not iceriklerinin chunk, embedding, vektor indeksleme ve kaynakli soru-cevap aki
 - `TextChunkingService`: Yaklasik 512 token ve yuzde 20 overlap ile chunk uretir.
 - `QdrantVectorService`: Collection olusturma, upsert, semantic search ve note bazli silme islemlerini yapar.
 - `PdfIngestionService`: PDF metnini PdfPig ile cikarir ve not icerigi olarak MSSQL'e kaydeder.
-- `AudioTranscriptionService`: WebM/WAV ses dosyalarini Gemini 2.5 Flash inline audio ile metne donusturur.
+- `AudioTranscriptionService`: WebM/WAV/M4A/MP3 ses dosyalarini Deepgram ile metne donusturur.
 - `RagAnswerService`: Semantic search sonucunu prompt baglamina donusturur ve streaming cevap uretir.
 
 ### Qdrant Collection
@@ -214,7 +214,7 @@ Dev ortaminda tamamlanan surumun live branch, deploy, test ve demo akisi ile tes
 ### Frontend Deploy
 
 - Vercel deploy ayarlanir.
-- `NEXT_PUBLIC_API_URL` Vercel environment olarak girilir.
+- `VITE_API_URL` frontend hosting environment olarak girilir.
 - Auth cookie kullaniliyorsa `SameSite=None` ve `Secure=true` domain uyumu dogrulanir.
 
 ### Test Basliklari

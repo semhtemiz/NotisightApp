@@ -19,7 +19,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({ isOpen, 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-ns-bg-secondary border border-ns-border rounded-2xl w-full max-w-sm shadow-2xl p-6"
+        className="bg-ns-bg-secondary border border-ns-border rounded-2xl w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-2xl p-5 sm:p-6"
       >
         <div className="flex flex-col items-center text-center gap-4">
           <div className="w-12 h-12 rounded-full bg-ns-error/20 text-ns-error flex items-center justify-center border border-ns-error/30">

@@ -204,10 +204,11 @@ interface SidebarProps {
   onSearch?: () => void;
   onCollapse: () => void;
   width?: number;
+  mobileFullScreen?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
-  folders, activeNoteId, activeFolderId, editingFolderId, onClearEditingFolder, onSelectNote, onToggleFolder, onCreateNote, onCreateFolder, onUpdateFolderName, onDeleteNote, onDeleteFolder, onRecordVoiceNote, onUploadPdf, onOpenSettings, onOpenSearch, onCollapse, width
+  folders, activeNoteId, activeFolderId, editingFolderId, onClearEditingFolder, onSelectNote, onToggleFolder, onCreateNote, onCreateFolder, onUpdateFolderName, onDeleteNote, onDeleteFolder, onRecordVoiceNote, onUploadPdf, onOpenSettings, onOpenSearch, onSearch, onCollapse, width, mobileFullScreen = false
 }) => {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [avatarSeed, setAvatarSeed] = useState(() => localStorage.getItem('avatarSeed') || 'Felix');
@@ -257,10 +258,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+  const handleSearch = onOpenSearch ?? onSearch;
+
   return (
     <aside
-      className={`absolute md:relative z-20 h-full shrink-0 flex flex-col ns-panel-shell text-ns-text-primary shadow-2xl shadow-black/20 backdrop-blur-xl md:my-2 md:ml-2 md:h-[calc(100%-1rem)] md:rounded-3xl md:overflow-hidden md:shadow-none transition-all ${width ? '' : 'w-[80%] sm:w-[280px] md:w-[240px]'}`}
-      style={width ? { width: `${width}px` } : undefined}
+      className={`${mobileFullScreen ? 'relative w-full' : 'absolute shadow-2xl shadow-black/20'} md:relative z-20 h-full shrink-0 flex flex-col ns-panel-shell text-ns-text-primary backdrop-blur-xl md:my-2 md:ml-2 md:h-[calc(100%-1rem)] md:rounded-3xl md:overflow-hidden md:shadow-none transition-all ${mobileFullScreen ? '' : width ? '' : 'w-[80%] sm:w-[280px] md:w-[240px]'}`}
+      style={!mobileFullScreen && width ? { width: `${width}px` } : undefined}
     >
 
       {/* Top Action Bar */}
@@ -311,7 +314,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <FolderPlus className="w-4 h-4" />
           </button>
           <button
-            onClick={onOpenSearch}
+            onClick={handleSearch}
             className="hover:text-ns-primary-hover hover:bg-ns-surface-hover/70 p-1.5 rounded-lg transition-colors"
             title="Ara (Cmd+K)"
           >

@@ -53,7 +53,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
           return;
         }
 
-        if (!/^[a-zA-Z0-9._-]{3,60}$/.test(normalizedUsername)) {
+        if (!/^[-A-Za-z0-9._]{3,60}$/.test(normalizedUsername)) {
           setError('Kullanıcı adı 3-60 karakter olmalı; yalnızca harf, sayı, nokta, alt çizgi ve kısa çizgi içerebilir.');
           return;
         }
@@ -160,7 +160,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                     required={!isLoginMode}
                     minLength={3}
                     maxLength={60}
-                    pattern="[a-zA-Z0-9._-]+"
+                    pattern="[-A-Za-z0-9._]+"
                   />
                 </div>
                 <p className="text-xs text-ns-text-muted">

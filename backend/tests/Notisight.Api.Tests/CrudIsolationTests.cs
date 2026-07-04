@@ -86,6 +86,26 @@ public sealed class CrudIsolationTests : IClassFixture<TestApiFactory>
     }
 
     [Fact]
+    public async Task Note_Create_Allows_Blank_Content()
+    {
+        var auth = await _client.RegisterAsync("blank-note@example.com", "Owner123!", "Notes User");
+        _client.SetBearer(auth.AccessToken);
+
+        var response = await _client.PostAsJsonAsync(
+            "/notes",
+            new NoteRequest("Yeni Not", string.Empty, null, []));
+
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.True(
+            response.StatusCode == HttpStatusCode.Created,
+            $"Expected Created but got {(int)response.StatusCode}: {body}");
+
+        var note = (await response.Content.ReadFromJsonAsync<NoteResponse>())!;
+        Assert.Equal("Yeni Not", note.Title);
+        Assert.Equal(string.Empty, note.Content);
+    }
+
+    [Fact]
     public async Task Folder_Update_Rejects_Other_Users_Parent()
     {
         var firstUser = await _client.RegisterAsync("folder-owner@example.com", "Owner123!", "Owner");

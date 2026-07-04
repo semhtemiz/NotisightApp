@@ -9,7 +9,7 @@
 - `RagAnswerService` eklendi; bulunan chunk'lari kullanarak kaynak referansli bir cevap uretiyor.
 - `POST /ai/ask` endpointi eklendi; SSE (`text/event-stream`) ile parcali cevap ve `noteId` kaynak referanslari donuyor.
 - `PdfIngestionService` ve `POST /notes/upload-pdf` endpointi eklendi.
-- `AudioTranscriptionService` ve `POST /notes/upload-audio` endpointi eklendi; Gemini `generateContent` inline audio ile WAV/WEBM transkripsiyon uretiyor.
+- `AudioTranscriptionService` ve `POST /notes/upload-audio` endpointi eklendi; Deepgram ile WAV/WEBM/M4A/MP3 transkripsiyon uretiyor.
 - `GeminiEmbeddingService` eklendi; API key varsa Gemini `embedContent`, yoksa test/development icin deterministik local embedding uretiyor.
 - `GeminiChatService` eklendi; API key varsa bulunan baglamdan Gemini `generateContent` ile kaynakli cevap uretiyor.
 - Gemini model varsayilanlari `gemini-2.5-flash` ve `gemini-embedding-001` olarak guncellendi; embedding cikisi Qdrant icin 768 boyuta sabitleniyor.

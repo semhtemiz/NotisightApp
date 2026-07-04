@@ -14,7 +14,7 @@
 
 - [ ] Vercel projesi olusturuldu.
 - [ ] Frontend production build basarili.
-- [ ] `NEXT_PUBLIC_API_URL` production ortaminda tanimli.
+- [ ] `VITE_API_URL` production ortaminda tanimli.
 - [ ] Auth cookie/domain ayarlari dogrulandi.
 - [ ] Frontend production URL backend ile konusuyor.
 

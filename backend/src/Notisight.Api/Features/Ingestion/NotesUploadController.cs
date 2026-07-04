@@ -19,7 +19,8 @@ public sealed class NotesUploadController(
     IPdfIngestionService pdfIngestionService,
     IAudioTranscriptionService audioTranscriptionService,
     IVectorSyncQueue vectorSyncQueue,
-    IFileStorageService fileStorageService) : ControllerBase
+    IFileStorageService fileStorageService,
+    ILogger<NotesUploadController> logger) : ControllerBase
 {
     [HttpPost("upload-pdf")]
     [RequestSizeLimit(20_000_000)]
@@ -114,7 +115,7 @@ public sealed class NotesUploadController(
         var fileBytes = memoryStream.ToArray();
 
         using var transcribeStream = new MemoryStream(fileBytes);
-        var transcript = await audioTranscriptionService.TranscribeAsync(transcribeStream, file.FileName, cancellationToken);
+        var transcript = await TryTranscribeAudioAsync(transcribeStream, file.FileName, cancellationToken);
 
         using var uploadStream = new MemoryStream(fileBytes);
         var fileUrl = await fileStorageService.UploadFileAsync(uploadStream, file.FileName, file.ContentType, cancellationToken);
@@ -217,6 +218,29 @@ public sealed class NotesUploadController(
         if (!exists)
         {
             throw new KeyNotFoundException("Folder was not found.");
+        }
+    }
+
+    private async Task<string> TryTranscribeAudioAsync(
+        Stream audioStream,
+        string fileName,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await audioTranscriptionService.TranscribeAsync(audioStream, fileName, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(
+                exception,
+                "Audio transcription failed for {FileName}; saving the audio note without transcript.",
+                fileName);
+
+            return $"""
+                <p>Ses kaydı kaydedildi ancak transkripsiyon tamamlanamadı.</p>
+                <p><strong>Hata:</strong> {System.Net.WebUtility.HtmlEncode(exception.Message)}</p>
+                """;
         }
     }
 }

@@ -276,6 +276,54 @@ html, body {
   overflow-anchor: none;
 }
 
+@media (max-width: 767px) {
+  .notisight-title-editor {
+    margin-bottom: 0.65rem;
+  }
+
+  .notisight-title-editor h1 {
+    font-size: 1.55rem;
+    line-height: 1.14;
+    font-weight: 750;
+  }
+
+  .notisight-title-editor h2 {
+    font-size: 1.35rem;
+    line-height: 1.18;
+  }
+
+  .notisight-title-editor .is-empty:first-child::before {
+    max-width: 100%;
+  }
+
+  .notisight-editor-prose {
+    font-size: 0.96rem;
+    line-height: 1.68;
+  }
+
+  .notisight-editor-prose p {
+    margin-top: 0.35rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .notisight-editor-prose p.is-editor-empty:first-child::before {
+    max-width: 100%;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    line-height: 1.45;
+  }
+
+  .notisight-editor-toolbar {
+    scroll-padding-inline: 0.5rem;
+  }
+
+  .notisight-editor-toolbar button {
+    min-width: 2rem;
+    min-height: 2rem;
+  }
+}
+
 .notisight-ai-ghost-preview {
   display: inline-flex;
   align-items: center;

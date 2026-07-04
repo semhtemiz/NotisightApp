@@ -100,4 +100,4 @@ sequenceDiagram
 
 ## Mevcut Implementasyon Notlari
 
-LLM chat servisi `OpenAiChatService` adini tasir, ancak kodda farkli provider'lar icin OpenAI-compatible `/chat/completions` endpointi kullanacak sekilde genellestirilmistir. Embedding ve ses transkripsiyonu ise Gemini API'leriyle ayrica yapilir.
+LLM chat servisi `OpenAiChatService` adini tasir, ancak kodda farkli provider'lar icin OpenAI-compatible `/chat/completions` endpointi kullanacak sekilde genellestirilmistir. Embedding Gemini API ile, ses transkripsiyonu ise Deepgram API ile ayrica yapilir.

@@ -38,13 +38,14 @@ public sealed class GeminiEmbeddingService(
         using var response = await RetryableHttp.SendAsync(
             () =>
             {
+                var modelName = NormalizeModelName(_geminiOptions.EmbeddingModel);
                 var request = new HttpRequestMessage(
                     HttpMethod.Post,
-                    $"https://generativelanguage.googleapis.com/v1beta/models/{_geminiOptions.EmbeddingModel}:embedContent");
+                    $"https://generativelanguage.googleapis.com/v1beta/models/{modelName}:embedContent");
                 request.Headers.Add("x-goog-api-key", _geminiOptions.ApiKey);
                 request.Content = JsonContent.Create(
                     new GeminiEmbeddingRequest(
-                        $"models/{_geminiOptions.EmbeddingModel}",
+                        $"models/{modelName}",
                         new GeminiContent([new GeminiPart(text)]),
                         taskType,
                         _qdrantOptions.VectorSize),
@@ -91,6 +92,17 @@ public sealed class GeminiEmbeddingService(
         }
 
         return vector;
+    }
+
+    private static string NormalizeModelName(string modelName)
+    {
+        var normalized = string.IsNullOrWhiteSpace(modelName)
+            ? "gemini-embedding-001"
+            : modelName.Trim();
+
+        return normalized.StartsWith("models/", StringComparison.OrdinalIgnoreCase)
+            ? normalized["models/".Length..]
+            : normalized;
     }
 
     private sealed record GeminiEmbeddingRequest(

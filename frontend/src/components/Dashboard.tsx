@@ -2,7 +2,7 @@ import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { EmptyState } from './EmptyState';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
-import { Loader2, FileText, X, PanelLeft, PanelRight, Headphones, BookOpen } from 'lucide-react';
+import { Bot, FolderOpen, Loader2, FileText, X, PanelLeft, PanelRight, Headphones, BookOpen } from 'lucide-react';
 import type { Folder, Note } from '../types';
 import { findNote, findFolder, findNotePath, toggleFolderRecursively, addNoteToFolder, addFolderToParent, updateNoteInFolder, updateFolderName, deleteNoteFromFolder, deleteFolder, getAllNotes } from '../utils/folderUtils';
 import { apiClient } from '../utils/apiClient';
@@ -21,6 +21,10 @@ const ROOT_NOTES_NAME_KEY = 'notisight_root_notes_name';
 const LAST_USED_FOLDER_KEY = 'notisight_last_used_folder_id';
 const DEFAULT_ROOT_NOTES_NAME = 'Genel Notlar';
 const DEFAULT_FOLDER_NAME = 'Yeni Klasör';
+type MobileSurface = 'explorer' | 'note' | 'ai';
+
+const isMobileViewport = () =>
+  typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
 
 const WorkspaceFallback = () => (
   <div className="flex flex-1 items-center justify-center bg-ns-bg-primary text-ns-text-muted">
@@ -47,10 +51,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenSettings }) => {
   const [openNoteIds, setOpenNoteIds] = useState<string[]>([]);
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => !isMobileViewport());
   const [sidebarWidth, setSidebarWidth] = useState(256);
-  const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(true);
+  const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(() => !isMobileViewport());
   const [aiWidth, setAiWidth] = useState(480);
+  const [activeMobileSurface, setActiveMobileSurface] = useState<MobileSurface>('explorer');
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isVoiceRecorderOpen, setIsVoiceRecorderOpen] = useState(false);
@@ -125,6 +130,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenSettings }) => {
         }
         
         setFolders(rootFolders);
+        if (isMobileViewport() && !activeNoteId) {
+          setActiveMobileSurface(rootFolders.length > 0 ? 'explorer' : 'note');
+        }
       } catch (err) {
         console.error('Veri çekme hatası:', err);
       }
@@ -164,6 +172,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenSettings }) => {
     if (!openNoteIds.includes(noteId)) {
       setOpenNoteIds(prev => [...prev, noteId]);
     }
+    setActiveMobileSurface('note');
   };
 
   const findFirstRealFolderId = (items: Folder[]): string | null => {
@@ -307,6 +316,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenSettings }) => {
       setFolders(prev => addNoteToFolder(prev, targetFolderId, newNote));
       setActiveNoteId(newNote.id);
       setOpenNoteIds(prev => [...prev, newNote.id]);
+      setActiveMobileSurface('note');
     } catch(err) { console.error('Not oluşturma hatası:', err); }
   };
 
@@ -384,6 +394,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenSettings }) => {
     }
     setActiveNoteId(newNote.id);
     setOpenNoteIds(prev => [...prev, newNote.id]);
+    setActiveMobileSurface('note');
   };
 
   // Yeni note objesini doğrudan Dashboard'a ekleyen metod (Upload modalları için)
@@ -408,6 +419,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenSettings }) => {
         if(!prev.includes(newNote.id)) return [...prev, newNote.id];
         return prev;
     });
+    setActiveMobileSurface('note');
   }
 
   const handleUpdateNote = async (id: string, updates: Partial<Note>) => {
@@ -500,176 +512,244 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenSettings }) => {
   const activeNote = activeNoteId ? findNote(folders, activeNoteId) : null;
   const activeNotePath = activeNoteId ? findNotePath(folders, activeNoteId) : undefined;
   const folderPathStr = activeNotePath ? activeNotePath.join(' / ') : 'çalışma alanı';
+  const mobileNavItems = [
+    { id: 'explorer' as const, label: 'Gezgin', icon: FolderOpen },
+    { id: 'note' as const, label: 'Not', icon: FileText },
+    { id: 'ai' as const, label: 'AI', icon: Bot },
+  ];
+
+  const renderOpenTabs = () => openNoteIds.length > 0 && (
+    <div className="flex items-center h-10 border-b ns-hairline shrink-0 px-2 overflow-x-auto no-scrollbar gap-1 pt-1">
+      {openNoteIds.map(id => {
+        const note = findNote(folders, id);
+        if (!note) return null;
+        const isActive = activeNoteId === id;
+        return (
+          <div
+            key={id}
+            onClick={() => setActiveNoteId(id)}
+            className={`group relative flex h-8 min-w-[7.5rem] max-w-[70vw] cursor-pointer select-none items-center gap-2 rounded-t-lg border-b-2 px-3 text-[11px] font-medium transition-colors md:min-w-0 md:max-w-[200px] md:text-xs ${
+              isActive
+                ? 'bg-ns-bg-secondary/70 text-ns-text-primary border-ns-primary'
+                : 'text-ns-text-secondary hover:bg-ns-surface-hover/50 hover:text-ns-text-primary border-transparent'
+            }`}
+          >
+            {(() => {
+              const Icon = note.fileType === 'audio' ? Headphones : note.fileType === 'pdf' ? BookOpen : FileText;
+              return <Icon className="w-3.5 h-3.5 shrink-0 opacity-70" />;
+            })()}
+            <span className="truncate pr-4">{note.title || 'İsimsiz'}</span>
+            <button
+              onClick={(e) => handleCloseTab(id, e)}
+              className={`absolute right-1.5 p-0.5 rounded-sm hover:bg-ns-divider transition-all shrink-0 ${
+                isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+              }`}
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const renderWorkspaceContent = () => activeNote ? (
+    activeNote.fileType === 'pdf' ? (
+      <PdfViewer key={activeNote.id} note={activeNote} folderPathStr={folderPathStr} />
+    ) : activeNote.fileType === 'audio' ? (
+      <AudioViewer key={activeNote.id} note={activeNote} folderPathStr={folderPathStr} />
+    ) : (
+      <Editor key={activeNote.id} note={activeNote} onUpdate={handleUpdateNote} folderPathStr={folderPathStr} />
+    )
+  ) : (
+    <EmptyState
+      onCreateNote={handleCreateNote}
+      onUpload={handleOpenUploadModal}
+      onRecordVoiceNote={handleOpenVoiceRecorder}
+    />
+  );
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-ns-bg-primary relative">
-      
-      {isSidebarOpen ? (
-        <>
-          <Sidebar 
-            width={sidebarWidth}
-            folders={folders}
-            activeNoteId={activeNoteId}
-            activeFolderId={activeFolderId}
-            editingFolderId={editingFolderId}
-            onClearEditingFolder={() => setEditingFolderId(null)}
-            onSelectNote={handleSelectNote}
-            onToggleFolder={handleToggleFolder}
-            onCreateNote={handleCreateNote}
-            onCreateFolder={handleCreateFolder}
-            onUpdateFolderName={handleUpdateFolderName}
-            onDeleteNote={handleDeleteNotePrompt}
-            onDeleteFolder={handleDeleteFolderPrompt}
-            onRecordVoiceNote={handleOpenVoiceRecorder}
-            onUploadPdf={handleOpenUploadModal}
-            onOpenSettings={onOpenSettings}
-            onSearch={() => setIsCommandPaletteOpen(true)}
-            onCollapse={() => setIsSidebarOpen(false)}
-          />
-          <div
-            className="ns-panel-divider hidden w-2 cursor-col-resize transition-colors z-30 shrink-0 md:block"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              const startX = e.clientX;
-              const startWidth = sidebarWidth;
-              const onMouseMove = (e: MouseEvent) => {
-                const newWidth = Math.max(200, Math.min(startWidth + (e.clientX - startX), 600));
-                setSidebarWidth(newWidth);
-              };
-              const onMouseUp = () => {
-                document.removeEventListener('mousemove', onMouseMove);
-                document.removeEventListener('mouseup', onMouseUp);
-                document.body.style.cursor = 'default';
-                document.body.style.userSelect = '';
-              };
-              document.addEventListener('mousemove', onMouseMove);
-              document.addEventListener('mouseup', onMouseUp);
-              document.body.style.cursor = 'col-resize';
-              document.body.style.userSelect = 'none';
-            }}
-          />
-        </>
-      ) : (
-        <div className="hidden md:flex relative z-10 w-12 h-full shrink-0 flex-col bg-ns-bg-secondary/70 backdrop-blur-xl items-center py-3">
-          <button 
-            onClick={() => setIsSidebarOpen(true)}
-            className="p-2 text-ns-text-secondary hover:text-ns-text-primary hover:bg-ns-surface-hover/70 rounded-lg transition-colors"
-            title="Gezgini Aç"
-          >
-            <PanelLeft className="w-5 h-5" />
-          </button>
-        </div>
-      )}
-
-      <div className="flex-1 flex flex-col min-w-0 bg-ns-bg-primary w-full h-full relative">
-        {!isSidebarOpen && (
-          <button onClick={() => setIsSidebarOpen(true)} className="md:hidden absolute top-2.5 left-2 z-30 p-1.5 text-ns-text-secondary hover:text-ns-text-primary hover:bg-ns-surface-hover/70 rounded-lg transition-colors">
-            <PanelLeft className="w-5 h-5" />
-          </button>
-        )}
-        {!isAIAssistantOpen && (
-          <button onClick={() => setIsAIAssistantOpen(true)} className="md:hidden absolute top-2.5 right-2 z-30 p-1.5 text-ns-text-secondary hover:text-ns-text-primary hover:bg-ns-surface-hover/70 rounded-lg transition-colors">
-            <PanelRight className="w-5 h-5" />
-          </button>
-        )}
-
-        {openNoteIds.length > 0 && (
-          <div className="flex items-center h-10 border-b ns-hairline shrink-0 px-2 overflow-x-auto no-scrollbar gap-1 pt-1">
-            {openNoteIds.map(id => {
-              const note = findNote(folders, id);
-              if (!note) return null;
-              const isActive = activeNoteId === id;
-              return (
-                <div 
-                  key={id}
-                  onClick={() => setActiveNoteId(id)}
-                  className={`group relative flex items-center gap-2 h-8 px-3 rounded-t-lg text-xs cursor-pointer transition-colors max-w-[200px] select-none border-b-2 font-medium ${
-                    isActive 
-                      ? 'bg-ns-bg-secondary/70 text-ns-text-primary border-ns-primary' 
-                      : 'text-ns-text-secondary hover:bg-ns-surface-hover/50 hover:text-ns-text-primary border-transparent'
-                  }`}
-                >
-                  {(() => {
-                    const Icon = note.fileType === 'audio' ? Headphones : note.fileType === 'pdf' ? BookOpen : FileText;
-                    return <Icon className="w-3.5 h-3.5 shrink-0 opacity-70" />;
-                  })()}
-                  <span className="truncate pr-4">{note.title || 'İsimsiz'}</span>
-                  <button 
-                    onClick={(e) => handleCloseTab(id, e)}
-                    className={`absolute right-1.5 p-0.5 rounded-sm hover:bg-ns-divider transition-all shrink-0 ${
-                      isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                    }`}
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              )
-            })}
+    <div className="flex h-[100dvh] w-full overflow-hidden bg-ns-bg-primary relative md:h-screen">
+      <div className="hidden h-full w-full md:flex">
+        {isSidebarOpen ? (
+          <>
+            <Sidebar
+              width={sidebarWidth}
+              folders={folders}
+              activeNoteId={activeNoteId}
+              activeFolderId={activeFolderId}
+              editingFolderId={editingFolderId}
+              onClearEditingFolder={() => setEditingFolderId(null)}
+              onSelectNote={handleSelectNote}
+              onToggleFolder={handleToggleFolder}
+              onCreateNote={handleCreateNote}
+              onCreateFolder={handleCreateFolder}
+              onUpdateFolderName={handleUpdateFolderName}
+              onDeleteNote={handleDeleteNotePrompt}
+              onDeleteFolder={handleDeleteFolderPrompt}
+              onRecordVoiceNote={handleOpenVoiceRecorder}
+              onUploadPdf={handleOpenUploadModal}
+              onOpenSettings={onOpenSettings}
+              onSearch={() => setIsCommandPaletteOpen(true)}
+              onCollapse={() => setIsSidebarOpen(false)}
+            />
+            <div
+              className="ns-panel-divider hidden w-2 cursor-col-resize transition-colors z-30 shrink-0 md:block"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                const startX = e.clientX;
+                const startWidth = sidebarWidth;
+                const onMouseMove = (e: MouseEvent) => {
+                  const newWidth = Math.max(200, Math.min(startWidth + (e.clientX - startX), 600));
+                  setSidebarWidth(newWidth);
+                };
+                const onMouseUp = () => {
+                  document.removeEventListener('mousemove', onMouseMove);
+                  document.removeEventListener('mouseup', onMouseUp);
+                  document.body.style.cursor = 'default';
+                  document.body.style.userSelect = '';
+                };
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+              }}
+            />
+          </>
+        ) : (
+          <div className="hidden md:flex relative z-10 w-12 h-full shrink-0 flex-col bg-ns-bg-secondary/70 backdrop-blur-xl items-center py-3">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-2 text-ns-text-secondary hover:text-ns-text-primary hover:bg-ns-surface-hover/70 rounded-lg transition-colors"
+              title="Gezgini Aç"
+            >
+              <PanelLeft className="w-5 h-5" />
+            </button>
           </div>
         )}
-        
-        <Suspense fallback={<WorkspaceFallback />}>
-          {activeNote ? (
-            activeNote.fileType === 'pdf' ? (
-              <PdfViewer key={activeNote.id} note={activeNote} folderPathStr={folderPathStr} />
-            ) : activeNote.fileType === 'audio' ? (
-              <AudioViewer key={activeNote.id} note={activeNote} folderPathStr={folderPathStr} />
-            ) : (
-              <Editor key={activeNote.id} note={activeNote} onUpdate={handleUpdateNote} folderPathStr={folderPathStr} />
-            )
-          ) : (
-            <EmptyState
-              onCreateNote={handleCreateNote}
-              onUpload={handleOpenUploadModal}
-              onRecordVoiceNote={handleOpenVoiceRecorder}
+
+        <div className="flex-1 flex flex-col min-w-0 bg-ns-bg-primary w-full h-full relative">
+          {renderOpenTabs()}
+          <Suspense fallback={<WorkspaceFallback />}>
+            {renderWorkspaceContent()}
+          </Suspense>
+        </div>
+
+        {isAIAssistantOpen ? (
+          <>
+            <div
+              className="ns-panel-divider hidden w-2 cursor-col-resize transition-colors z-30 shrink-0 md:block"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                const startX = e.clientX;
+                const startWidth = aiWidth;
+                const onMouseMove = (e: MouseEvent) => {
+                  const newWidth = Math.max(300, Math.min(startWidth - (e.clientX - startX), 800));
+                  setAiWidth(newWidth);
+                };
+                const onMouseUp = () => {
+                  document.removeEventListener('mousemove', onMouseMove);
+                  document.removeEventListener('mouseup', onMouseUp);
+                  document.body.style.cursor = 'default';
+                  document.body.style.userSelect = '';
+                };
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+              }}
             />
-          )}
-        </Suspense>
+            <Suspense fallback={<AiPanelFallback width={aiWidth} />}>
+              <AIAssistant
+                width={aiWidth}
+                onCollapse={() => setIsAIAssistantOpen(false)}
+                onSelectNote={handleSelectNote}
+              />
+            </Suspense>
+          </>
+        ) : (
+          <div className="hidden md:flex relative z-10 w-12 h-full shrink-0 flex-col bg-ns-bg-secondary/70 backdrop-blur-xl items-center py-3 gap-4">
+            <button
+              onClick={() => setIsAIAssistantOpen(true)}
+              className="p-2 text-ns-text-secondary hover:text-ns-text-primary hover:bg-ns-surface-hover/70 rounded-lg transition-colors"
+              title="Yapay Zeka'yı Aç"
+            >
+              <PanelRight className="w-5 h-5" />
+            </button>
+          </div>
+        )}
       </div>
 
-      {isAIAssistantOpen ? (
-        <>
-          <div 
-            className="ns-panel-divider hidden w-2 cursor-col-resize transition-colors z-30 shrink-0 md:block"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              const startX = e.clientX;
-              const startWidth = aiWidth;
-              const onMouseMove = (e: MouseEvent) => {
-                const newWidth = Math.max(300, Math.min(startWidth - (e.clientX - startX), 800));
-                setAiWidth(newWidth);
-              };
-              const onMouseUp = () => {
-                document.removeEventListener('mousemove', onMouseMove);
-                document.removeEventListener('mouseup', onMouseUp);
-                document.body.style.cursor = 'default';
-                document.body.style.userSelect = '';
-              };
-              document.addEventListener('mousemove', onMouseMove);
-              document.addEventListener('mouseup', onMouseUp);
-              document.body.style.cursor = 'col-resize';
-              document.body.style.userSelect = 'none';
-            }}
-          />
-          <Suspense fallback={<AiPanelFallback width={aiWidth} />}>
-            <AIAssistant
-              width={aiWidth}
-              onCollapse={() => setIsAIAssistantOpen(false)}
+      <div className="flex h-full w-full flex-col md:hidden">
+        <div className="relative min-h-0 flex-1 overflow-hidden pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
+          {activeMobileSurface === 'explorer' && (
+            <Sidebar
+              mobileFullScreen
+              folders={folders}
+              activeNoteId={activeNoteId}
+              activeFolderId={activeFolderId}
+              editingFolderId={editingFolderId}
+              onClearEditingFolder={() => setEditingFolderId(null)}
               onSelectNote={handleSelectNote}
+              onToggleFolder={handleToggleFolder}
+              onCreateNote={handleCreateNote}
+              onCreateFolder={handleCreateFolder}
+              onUpdateFolderName={handleUpdateFolderName}
+              onDeleteNote={handleDeleteNotePrompt}
+              onDeleteFolder={handleDeleteFolderPrompt}
+              onRecordVoiceNote={handleOpenVoiceRecorder}
+              onUploadPdf={handleOpenUploadModal}
+              onOpenSettings={onOpenSettings}
+              onSearch={() => setIsCommandPaletteOpen(true)}
+              onCollapse={() => setActiveMobileSurface('note')}
             />
-          </Suspense>
-        </>
-      ) : (
-        <div className="hidden md:flex relative z-10 w-12 h-full shrink-0 flex-col bg-ns-bg-secondary/70 backdrop-blur-xl items-center py-3 gap-4">
-          <button 
-            onClick={() => setIsAIAssistantOpen(true)}
-            className="p-2 text-ns-text-secondary hover:text-ns-text-primary hover:bg-ns-surface-hover/70 rounded-lg transition-colors"
-            title="Yapay Zeka'yı Aç"
-          >
-            <PanelRight className="w-5 h-5" />
-          </button>
+          )}
+
+          {activeMobileSurface === 'note' && (
+            <div className="flex h-full min-w-0 flex-col bg-ns-bg-primary">
+              {renderOpenTabs()}
+              <Suspense fallback={<WorkspaceFallback />}>
+                {renderWorkspaceContent()}
+              </Suspense>
+            </div>
+          )}
+
+          {activeMobileSurface === 'ai' && (
+            <Suspense fallback={<WorkspaceFallback />}>
+              <AIAssistant
+                mobileFullScreen
+                onCollapse={() => setActiveMobileSurface('note')}
+                onSelectNote={handleSelectNote}
+              />
+            </Suspense>
+          )}
         </div>
-      )}
+
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-ns-border/60 bg-ns-bg-secondary/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.55rem)] pt-2 backdrop-blur-xl">
+          <div className="mx-auto grid max-w-md grid-cols-3 gap-2">
+            {mobileNavItems.map(item => {
+              const Icon = item.icon;
+              const isActive = activeMobileSurface === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveMobileSurface(item.id)}
+                  className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-2xl border px-2 text-[11px] font-semibold transition-colors ${
+                    isActive
+                      ? 'border-ns-primary/30 bg-ns-primary/10 text-ns-primary'
+                      : 'border-transparent text-ns-text-muted hover:bg-ns-surface-hover/70 hover:text-ns-text-primary'
+                  }`}
+                >
+                  <Icon className="h-[18px] w-[18px]" strokeWidth={isActive ? 2.4 : 2} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      </div>
 
       <Suspense fallback={null}>
         <CommandPalette

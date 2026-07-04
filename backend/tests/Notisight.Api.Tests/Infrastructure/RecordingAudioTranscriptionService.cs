@@ -6,6 +6,7 @@ public sealed class RecordingAudioTranscriptionService : IAudioTranscriptionServ
 {
     private readonly object _gate = new();
     private readonly List<string> _fileNames = [];
+    private Exception? _failure;
 
     public IReadOnlyList<string> FileNames
     {
@@ -23,6 +24,15 @@ public sealed class RecordingAudioTranscriptionService : IAudioTranscriptionServ
         lock (_gate)
         {
             _fileNames.Clear();
+            _failure = null;
+        }
+    }
+
+    public void FailWith(Exception exception)
+    {
+        lock (_gate)
+        {
+            _failure = exception;
         }
     }
 
@@ -34,6 +44,10 @@ public sealed class RecordingAudioTranscriptionService : IAudioTranscriptionServ
         lock (_gate)
         {
             _fileNames.Add(fileName);
+            if (_failure is not null)
+            {
+                throw _failure;
+            }
         }
 
         return Task.FromResult("Recorded transcript from fake audio service.");

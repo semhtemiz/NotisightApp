@@ -37,7 +37,7 @@ Notisight'in teknoloji secimleri iki hedefe dayanir: guvenilir veri yonetimi ve 
 | Bilesen | Teknoloji | Not |
 |---|---|---|
 | Embedding | Gemini embedding modeli | Dokuman ve sorgu embedding uretimi |
-| Audio transcription | Gemini generateContent inline audio | Ses dosyasini metne cevirme |
+| Audio transcription | Deepgram API | Ses dosyasini metne cevirme |
 | Vector store | Qdrant | Cosine distance ile semantic search |
 | Chat LLM | OpenAI-compatible `/chat/completions` | OpenAI, DashScope, Gemini OpenAI-compatible, DeepSeek, OpenRouter, Grok vb. |
 | Retrieval | Hybrid vector + keyword | RRF ile birlestirme |

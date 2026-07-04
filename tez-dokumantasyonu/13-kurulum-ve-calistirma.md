@@ -8,7 +8,8 @@
 | Node.js + npm | Frontend dependency ve Vite |
 | SQL Server | Local veya remote veritabani |
 | Qdrant Cloud veya local Qdrant | Vektor arama |
-| Gemini API key | Embedding ve ses transkripsiyonu |
+| Gemini API key | Embedding |
+| Deepgram API key | Ses transkripsiyonu |
 | Cloudflare R2 credentials | Dosya depolama |
 
 ## Backend Calistirma
