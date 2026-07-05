@@ -240,6 +240,7 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({ isOpen, 
               fileUrl: data.fileUrl ? buildApiUrl(`/notes/${data.noteId || data.id}/file`) : undefined,
               fileType: data.fileType || 'audio',
               durationSeconds: data.durationSeconds,
+              updatedAtUtc: data.updatedAtUtc ?? new Date().toISOString(),
               vectorSyncStatus: data.vectorSyncStatus ?? 'pending',
               vectorSyncError: data.vectorSyncError,
               vectorSyncedAtUtc: data.vectorSyncedAtUtc

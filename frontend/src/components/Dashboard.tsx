@@ -115,6 +115,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenSettings }) => {
             fileUrl: n.fileUrl ? buildApiUrl(`/notes/${n.id}/file`) : undefined,
             fileType: n.fileType,
             durationSeconds: n.durationSeconds,
+            updatedAtUtc: n.updatedAtUtc,
             vectorSyncStatus: n.vectorSyncStatus,
             vectorSyncError: n.vectorSyncError,
             vectorSyncedAtUtc: n.vectorSyncedAtUtc
@@ -328,6 +329,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenSettings }) => {
         tagIds: [],
         content: response.content,
         folderId: response.folderId,
+        updatedAtUtc: response.updatedAtUtc,
         vectorSyncStatus: response.vectorSyncStatus,
         vectorSyncError: response.vectorSyncError,
         vectorSyncedAtUtc: response.vectorSyncedAtUtc
@@ -396,7 +398,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenSettings }) => {
         tags: ['Sesli'],
         tagIds: [],
         content: '<p>Sesli notunuz işleniyor...</p>',
-        audioUrl
+        audioUrl,
+        updatedAtUtc: new Date().toISOString()
       };
     if (folderId && folderId !== ROOT_NOTES_ID) {
       rememberFolder(folderId);
@@ -457,6 +460,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenSettings }) => {
           tagIds: currentNote.tagIds ?? []
         });
         setFolders(prev => updateNoteInFolder(prev, id, {
+          updatedAtUtc: response.updatedAtUtc,
           vectorSyncStatus: response.vectorSyncStatus,
           vectorSyncError: response.vectorSyncError,
           vectorSyncedAtUtc: response.vectorSyncedAtUtc
@@ -512,6 +516,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenSettings }) => {
       setFolders(prev => updateNoteInFolder(prev, noteId, {
         folderId: response.folderId ?? undefined,
         durationSeconds: response.durationSeconds,
+        updatedAtUtc: response.updatedAtUtc,
         vectorSyncStatus: response.vectorSyncStatus,
         vectorSyncError: response.vectorSyncError,
         vectorSyncedAtUtc: response.vectorSyncedAtUtc
@@ -853,11 +858,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenSettings }) => {
       <Suspense fallback={null}>
         <CommandPalette
           isOpen={isCommandPaletteOpen}
+          folders={folders}
           onClose={() => setIsCommandPaletteOpen(false)}
-          onSelectAction={(action) => {
-            if (action === 'upload') handleOpenUploadModal();
-            if (action === 'create') handleCreateNote();
-          }}
+          onSelectNote={handleSelectNote}
         />
 
         <KnowledgeIngestionModal
