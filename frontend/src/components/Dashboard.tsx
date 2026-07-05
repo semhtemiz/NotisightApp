@@ -782,7 +782,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenSettings }) => {
         )}
       </div>
 
-      <div className="flex h-full w-full flex-col md:hidden">
+      <div className="flex h-full min-h-0 w-full flex-col md:hidden">
         <div className="relative min-h-0 flex-1 overflow-hidden pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
           {activeMobileSurface === 'explorer' && (
             <Sidebar
@@ -811,7 +811,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenSettings }) => {
           )}
 
           {activeMobileSurface === 'note' && (
-            <div className="flex h-full min-w-0 flex-col bg-ns-bg-primary">
+            <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-ns-bg-primary">
               {renderOpenTabs()}
               <Suspense fallback={<WorkspaceFallback />}>
                 {renderWorkspaceContent()}

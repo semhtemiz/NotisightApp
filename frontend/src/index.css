@@ -276,6 +276,12 @@ html, body {
   overflow-anchor: none;
 }
 
+.mobile-scroll-area {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
+}
+
 @media (max-width: 767px) {
   .notisight-title-editor {
     margin-bottom: 0.65rem;

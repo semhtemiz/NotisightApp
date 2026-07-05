@@ -1357,7 +1357,7 @@ export const Editor: React.FC<EditorProps> = ({ note, onUpdate, folderPathStr })
     : undefined;
 
   return (
-    <main className="flex-1 flex flex-col bg-ns-bg-primary h-full relative" ref={containerRef}>
+    <main className="flex-1 flex min-h-0 flex-col overflow-hidden bg-ns-bg-primary h-full relative" ref={containerRef}>
       <header className="h-10 md:h-12 border-b border-ns-border flex items-center px-4 md:px-8 gap-4 justify-between shrink-0 bg-ns-bg-primary/95">
         <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-ns-text-muted text-[11px] md:text-xs">
           <span className="truncate">{folderPathStr || 'çalışma alanı'}</span>
@@ -1374,7 +1374,7 @@ export const Editor: React.FC<EditorProps> = ({ note, onUpdate, folderPathStr })
         </div>
       </header>
 
-      <article className="notisight-editor-scroll flex-1 px-4 pt-4 pb-6 md:px-16 md:py-12 overflow-y-auto relative" ref={articleRef}>
+      <article className="notisight-editor-scroll mobile-scroll-area flex-1 min-h-0 px-4 pt-4 pb-6 md:px-16 md:py-12 overflow-y-auto relative" ref={articleRef}>
         <motion.div className="mx-auto w-full max-w-3xl md:max-w-none" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           
           <EditorContent editor={titleEditor} />
