@@ -11,6 +11,7 @@ public sealed class ChunkSearchService(
     ITextChunkingService textChunkingService,
     IEmbeddingService embeddingService,
     IQdrantVectorService qdrantVectorService,
+    ILogger<ChunkSearchService> logger,
     IOptions<RagOptions> ragOptions) : IChunkSearchService
 {
     private readonly RagOptions _ragOptions = ragOptions.Value;
@@ -26,15 +27,26 @@ public sealed class ChunkSearchService(
             ? intent.OptimizedSearchQuery 
             : question;
 
-        var queryVector = await embeddingService.EmbedQueryAsync(searchQuery, cancellationToken);
-        var vectorResults = await qdrantVectorService.SearchAsync(
-            userId,
-            queryVector,
-            _ragOptions.TopK * 3, // Daha geniş bir vektör havuzu (eski 2x yerine 3x)
-            cancellationToken);
-        vectorResults = vectorResults
-            .Where(x => x.Score >= _ragOptions.MinVectorScore)
-            .ToList();
+        IReadOnlyList<SearchChunkResult> vectorResults = [];
+        try
+        {
+            var queryVector = await embeddingService.EmbedQueryAsync(searchQuery, cancellationToken);
+            vectorResults = await qdrantVectorService.SearchAsync(
+                userId,
+                queryVector,
+                _ragOptions.TopK * 3, // Daha geniş bir vektör havuzu (eski 2x yerine 3x)
+                cancellationToken);
+            vectorResults = vectorResults
+                .Where(x => x.Score >= _ragOptions.MinVectorScore)
+                .ToList();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(
+                exception,
+                "Vector search failed for user {UserId}; continuing with keyword search fallback.",
+                userId);
+        }
 
         // 2. Kelime Araması (Keyword Search)
         var notes = await dbContext.Notes

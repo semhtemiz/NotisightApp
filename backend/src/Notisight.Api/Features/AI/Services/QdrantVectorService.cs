@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
 using Notisight.Api.Features.AI.Contracts;
+using Notisight.Api.Infrastructure.Errors;
 using Notisight.Api.Infrastructure.Http;
 using Notisight.Api.Options;
 
@@ -63,13 +64,18 @@ public sealed class QdrantVectorService(
             return;
         }
 
+        if (check.StatusCode != System.Net.HttpStatusCode.NotFound)
+        {
+            await EnsureQdrantSuccessAsync(check, "check collection", cancellationToken);
+        }
+
         using var response = await SendAsync(
             HttpMethod.Put,
             $"/collections/{Uri.EscapeDataString(_options.CollectionName)}",
             new CreateCollectionRequest(new VectorConfig(_options.VectorSize, "Cosine")),
             cancellationToken);
 
-        response.EnsureSuccessStatusCode();
+        await EnsureQdrantSuccessAsync(response, "create collection", cancellationToken);
         await EnsurePayloadIndexesAsync(cancellationToken);
     }
 
@@ -108,7 +114,7 @@ public sealed class QdrantVectorService(
             new UpsertPointsRequest(points),
             cancellationToken);
 
-        response.EnsureSuccessStatusCode();
+        await EnsureQdrantSuccessAsync(response, "upsert points", cancellationToken);
     }
 
     public async Task DeleteByNoteIdAsync(Guid noteId, CancellationToken cancellationToken)
@@ -133,7 +139,7 @@ public sealed class QdrantVectorService(
             return;
         }
 
-        response.EnsureSuccessStatusCode();
+        await EnsureQdrantSuccessAsync(response, "delete points", cancellationToken);
     }
 
     public async Task<IReadOnlyList<SearchChunkResult>> SearchAsync(
@@ -166,7 +172,7 @@ public sealed class QdrantVectorService(
             return [];
         }
 
-        response.EnsureSuccessStatusCode();
+        await EnsureQdrantSuccessAsync(response, "search points", cancellationToken);
 
         var payload = await response.Content.ReadFromJsonAsync<SearchResponse>(
             cancellationToken: cancellationToken);
@@ -212,8 +218,80 @@ public sealed class QdrantVectorService(
             if (!response.IsSuccessStatusCode &&
                 response.StatusCode != System.Net.HttpStatusCode.Conflict)
             {
-                response.EnsureSuccessStatusCode();
+                await EnsureQdrantSuccessAsync(response, $"create payload index {fieldName}", cancellationToken);
             }
+        }
+    }
+
+    private async Task EnsureQdrantSuccessAsync(
+        HttpResponseMessage response,
+        string operation,
+        CancellationToken cancellationToken)
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            return;
+        }
+
+        var body = await ReadSafeBodyAsync(response, cancellationToken);
+        logger.LogWarning(
+            "Qdrant {Operation} failed. StatusCode: {StatusCode}. Collection: {CollectionName}. Body: {Body}",
+            operation,
+            (int)response.StatusCode,
+            _options.CollectionName,
+            body);
+
+        throw BuildQdrantException(response);
+    }
+
+    private static ApiHttpException BuildQdrantException(HttpResponseMessage response)
+    {
+        return response.StatusCode switch
+        {
+            System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden =>
+                new ApiHttpException(
+                    StatusCodes.Status502BadGateway,
+                    "Qdrant API anahtari kabul edilmedi. Azure Qdrant ayarlarini kontrol edin."),
+
+            System.Net.HttpStatusCode.NotFound =>
+                new ApiHttpException(
+                    StatusCodes.Status502BadGateway,
+                    "Qdrant koleksiyonu bulunamadi veya endpoint yanlis. Qdrant URL ve koleksiyon ayarlarini kontrol edin."),
+
+            System.Net.HttpStatusCode.TooManyRequests =>
+                new ApiHttpException(
+                    StatusCodes.Status429TooManyRequests,
+                    "Qdrant kullanimi limite takildi. Biraz bekleyip tekrar deneyin."),
+
+            System.Net.HttpStatusCode.BadRequest =>
+                new ApiHttpException(
+                    StatusCodes.Status502BadGateway,
+                    "Qdrant istegi gecersiz bulundu. Vektor boyutu ve koleksiyon ayarlarini kontrol edin."),
+
+            _ =>
+                new ApiHttpException(
+                    StatusCodes.Status502BadGateway,
+                    $"Qdrant servisi yanit veremedi. HTTP {(int)response.StatusCode} ({response.ReasonPhrase}).")
+        };
+    }
+
+    private static async Task<string> ReadSafeBodyAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                return "<empty>";
+            }
+
+            return body.Length <= 1000 ? body : body[..1000];
+        }
+        catch
+        {
+            return "<unreadable>";
         }
     }
 
