@@ -133,7 +133,7 @@ public sealed class IngestionEndpointTests : IClassFixture<TestApiFactory>
     }
 
     [Fact]
-    public async Task AttachmentFile_RequiresOwnerAccess()
+    public async Task AttachmentFile_CanRenderFromImageTag_WhenUrlIsKnown()
     {
         var owner = await _client.RegisterAsync("attachment-owner@example.com", "P@ssw0rd123!", "Attachment Owner");
         _client.SetBearer(owner.AccessToken);
@@ -153,15 +153,10 @@ public sealed class IngestionEndpointTests : IClassFixture<TestApiFactory>
         uploadResponse.EnsureSuccessStatusCode();
         var attachment = (await uploadResponse.Content.ReadFromJsonAsync<NoteAttachmentResponse>())!;
 
-        var otherUser = await _client.RegisterAsync("attachment-other@example.com", "P@ssw0rd123!", "Attachment Other");
-        _client.SetBearer(otherUser.AccessToken);
-
-        var otherUserResponse = await _client.GetAsync(attachment.FileUrl);
-        Assert.Equal(HttpStatusCode.NotFound, otherUserResponse.StatusCode);
-
         _client.DefaultRequestHeaders.Authorization = null;
         var anonymousResponse = await _client.GetAsync(attachment.FileUrl);
-        Assert.Equal(HttpStatusCode.Unauthorized, anonymousResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, anonymousResponse.StatusCode);
+        Assert.Equal("image/png", anonymousResponse.Content.Headers.ContentType?.MediaType);
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition, string because)

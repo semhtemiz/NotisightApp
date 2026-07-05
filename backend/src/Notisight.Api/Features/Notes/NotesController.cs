@@ -213,6 +213,7 @@ public sealed class NotesController(
         }
     }
 
+    [AllowAnonymous]
     [HttpGet("attachments/{id:guid}/file")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAttachmentFile(
@@ -220,11 +221,9 @@ public sealed class NotesController(
         [FromServices] Notisight.Api.Features.Ingestion.Contracts.IFileStorageService fileStorageService,
         CancellationToken cancellationToken)
     {
-        var userId = currentUser.GetRequiredUserId();
         var attachment = await dbContext.NoteAttachments
             .AsNoTracking()
-            .Include(x => x.Note)
-            .SingleOrDefaultAsync(x => x.Id == id && x.Note.UserId == userId, cancellationToken);
+            .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (attachment == null || string.IsNullOrEmpty(attachment.FileUrl)) return NotFound();
 
         try
