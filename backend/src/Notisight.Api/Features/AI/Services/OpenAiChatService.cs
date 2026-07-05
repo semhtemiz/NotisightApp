@@ -47,7 +47,7 @@ public class OpenAiChatService(
 
         if (!response.IsSuccessStatusCode)
         {
-            logger.LogWarning("OpenAI API returned {StatusCode}", response.StatusCode);
+            await LogProviderFailureAsync(response, "OpenAI-compatible chat generation", cancellationToken);
             return null;
         }
 
@@ -77,8 +77,7 @@ public class OpenAiChatService(
         
         if (!response.IsSuccessStatusCode)
         {
-            logger.LogWarning("OpenAI API returned {StatusCode}", response.StatusCode);
-            yield return "Üzgünüm, şu an yanıt üretemiyorum.";
+            yield return await BuildProviderFailureMessageAsync(response, cancellationToken);
             yield break;
         }
 
@@ -119,6 +118,60 @@ public class OpenAiChatService(
     private async IAsyncEnumerable<string> EmptyStreamAsync()
     {
         yield break;
+    }
+
+    private async Task LogProviderFailureAsync(
+        HttpResponseMessage response,
+        string operation,
+        CancellationToken cancellationToken)
+    {
+        var body = await ReadSafeBodyAsync(response, cancellationToken);
+        logger.LogWarning(
+            "{Operation} failed. StatusCode: {StatusCode}. Body: {Body}",
+            operation,
+            (int)response.StatusCode,
+            body);
+    }
+
+    private async Task<string> BuildProviderFailureMessageAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        await LogProviderFailureAsync(response, "OpenAI-compatible stream generation", cancellationToken);
+
+        return response.StatusCode switch
+        {
+            System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden =>
+                "AI sağlayıcısı API anahtarını kabul etmedi. API anahtarını ve sağlayıcı seçimini kontrol edin.",
+            System.Net.HttpStatusCode.NotFound =>
+                "AI sağlayıcısı seçilen modeli veya endpoint adresini bulamadı. Model seçimini ya da özel Base URL ayarını kontrol edin.",
+            System.Net.HttpStatusCode.TooManyRequests =>
+                "AI sağlayıcısı kullanım limitine takıldı. Biraz bekleyip tekrar deneyin veya sağlayıcı kotasını kontrol edin.",
+            System.Net.HttpStatusCode.BadRequest =>
+                "AI sağlayıcısı isteği geçersiz buldu. Model seçimini ve API yapılandırmasını kontrol edin.",
+            _ =>
+                $"AI sağlayıcısı şu an yanıt veremiyor. HTTP {(int)response.StatusCode} ({response.ReasonPhrase})."
+        };
+    }
+
+    private static async Task<string> ReadSafeBodyAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                return "<empty>";
+            }
+
+            return body.Length <= 1000 ? body : body[..1000];
+        }
+        catch
+        {
+            return "<unreadable>";
+        }
     }
 
     public async Task<QueryIntent> ExtractIntentAsync(string query, SessionContext? sessionContext, CancellationToken cancellationToken)
