@@ -53,6 +53,12 @@ public sealed class ChunkSearchService(
             .AsNoTracking()
             .Where(x => x.UserId == userId)
             .ToListAsync(cancellationToken);
+        var folderRows = await dbContext.Folders
+            .AsNoTracking()
+            .Where(x => x.UserId == userId)
+            .Select(x => new FolderPathRow(x.Id, x.Name, x.ParentFolderId))
+            .ToListAsync(cancellationToken);
+        var folderMap = folderRows.ToDictionary(x => x.Id);
 
         // Arama terimlerini oluştur (Hem orijinal soru hem de LLM'den gelen anahtar kelimeler)
         var terms = question
@@ -69,10 +75,11 @@ public sealed class ChunkSearchService(
         var keywordResults = new List<SearchChunkResult>();
         foreach (var note in notes)
         {
-            var sourceType = string.IsNullOrWhiteSpace(note.FileType) ? "note" : note.FileType;
+            var folderPath = BuildFolderPath(note.FolderId, folderMap);
+            var sourceType = string.IsNullOrWhiteSpace(note.FileType) ? "note" : note.FileType!;
             var searchableContent = CleanText(note.Content);
             var chunks = sourceType == "audio"
-                ? textChunkingService.ChunkAudio(note.Id, note.Title, searchableContent)
+                ? textChunkingService.ChunkAudio(note.Id, note.Title, searchableContent, note.DurationSeconds)
                 : textChunkingService.ChunkSource(note.Id, note.Title, searchableContent, sourceType);
             
             // İçeriği boş ama başlığı olan notlar için sanal chunk üret (başlık araması çalışsın)
@@ -86,6 +93,9 @@ public sealed class ChunkSearchService(
                 float score = 0;
                 var chunkContentLower = chunk.Content?.ToLowerInvariant() ?? "";
                 var titleLower = chunk.Title?.ToLowerInvariant() ?? "";
+                var folderPathLower = folderPath.ToLowerInvariant();
+                var sourceLabelLower = chunk.SourceLabel?.ToLowerInvariant() ?? "";
+                var sourceTypeLower = (sourceType ?? "note").ToLowerInvariant();
 
                 foreach (var term in terms)
                 {
@@ -93,21 +103,36 @@ public sealed class ChunkSearchService(
                     
                     bool inTitle = titleLower.Contains(term, StringComparison.Ordinal);
                     bool inContent = chunkContentLower.Contains(term, StringComparison.Ordinal);
+                    bool inFolderPath = folderPathLower.Contains(term, StringComparison.Ordinal);
+                    bool inSourceLabel = sourceLabelLower.Contains(term, StringComparison.Ordinal);
+                    bool inSourceType = sourceTypeLower.Contains(term, StringComparison.Ordinal);
 
                     if (inTitle) score += 5.0f; // Başlıkta eşleşme (Title Boosting)
                     if (inContent) score += 1.0f; // İçerikte eşleşme
+                    if (inFolderPath) score += 4.0f;
+                    if (inSourceLabel) score += 2.0f;
+                    if (inSourceType) score += 1.5f;
                     
                     // LLM'in özellikle bulduğu KeyEntities kelimeleriyse daha yüksek puan ver
                     if (intent.KeyEntities != null && intent.KeyEntities.Any(e => e.Equals(term, StringComparison.OrdinalIgnoreCase)))
                     {
                         if (inTitle) score += 15.0f; // Vektör puanlarıyla daha uyumlu bir oran
                         if (inContent) score += 3.0f;
+                        if (inFolderPath) score += 12.0f;
+                        if (inSourceLabel) score += 6.0f;
                     }
                 }
 
                 if (score > 0)
                 {
-                    keywordResults.Add(new SearchChunkResult(chunk with { UserId = note.UserId }, score));
+                    var enrichedChunk = chunk with
+                    {
+                        UserId = note.UserId,
+                        FolderId = note.FolderId,
+                        FolderPath = folderPath,
+                        DurationSeconds = note.DurationSeconds
+                    };
+                    keywordResults.Add(new SearchChunkResult(enrichedChunk, score));
                 }
             }
         }
@@ -169,4 +194,30 @@ public sealed class ChunkSearchService(
         cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"\n\s*\n+", "\n\n");
         return cleaned.Trim();
     }
+
+    private static string BuildFolderPath(
+        Guid? folderId,
+        IReadOnlyDictionary<Guid, FolderPathRow> folderMap)
+    {
+        if (!folderId.HasValue)
+        {
+            return "Ana dizin";
+        }
+
+        var visited = new HashSet<Guid>();
+        var path = new List<string>();
+        var currentFolderId = folderId;
+
+        while (currentFolderId.HasValue &&
+               visited.Add(currentFolderId.Value) &&
+               folderMap.TryGetValue(currentFolderId.Value, out var folder))
+        {
+            path.Insert(0, folder.Name);
+            currentFolderId = folder.ParentFolderId;
+        }
+
+        return path.Count > 0 ? string.Join(" / ", path) : "Ana dizin";
+    }
+
+    private sealed record FolderPathRow(Guid Id, string Name, Guid? ParentFolderId);
 }

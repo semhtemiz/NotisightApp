@@ -55,6 +55,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             entity.HasKey(x => x.Id);
             entity.Property(x => x.Title).HasMaxLength(200).IsRequired();
             entity.Property(x => x.Content);
+            entity.Property(x => x.DurationSeconds);
             entity.Property(x => x.VectorSyncStatus)
                 .HasMaxLength(32)
                 .HasDefaultValue(VectorSyncStatus.Pending)

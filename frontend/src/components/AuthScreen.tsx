@@ -106,7 +106,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
             </div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-ns-primary/90">Notisight</p>
             <h2 className="text-2xl font-semibold tracking-normal text-ns-text-primary">
-              {isLoginMode ? 'Tekrar hoş geldiniz' : 'Çalışma alanınızı başlatın'}
+              {isLoginMode ? 'Hoş geldiniz' : 'Çalışma alanınızı başlatın'}
             </h2>
             <p className="mt-2 max-w-sm text-sm leading-6 text-ns-text-muted">
               {isLoginMode

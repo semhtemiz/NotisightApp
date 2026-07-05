@@ -14,6 +14,29 @@ interface VoiceRecorderModalProps {
   preferredFolderId?: string | null;
 }
 
+const readAudioBlobDurationSeconds = (blob: Blob): Promise<number | undefined> =>
+  new Promise(resolve => {
+    const audio = document.createElement('audio');
+    const objectUrl = URL.createObjectURL(blob);
+
+    const cleanup = () => {
+      URL.revokeObjectURL(objectUrl);
+      audio.removeAttribute('src');
+    };
+
+    audio.preload = 'metadata';
+    audio.onloadedmetadata = () => {
+      const duration = audio.duration;
+      cleanup();
+      resolve(Number.isFinite(duration) && duration > 0 ? duration : undefined);
+    };
+    audio.onerror = () => {
+      cleanup();
+      resolve(undefined);
+    };
+    audio.src = objectUrl;
+  });
+
 export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({ isOpen, onClose, onSave, onNoteCreated, folders, preferredFolderId }) => {
   const [status, setStatus] = useState<'idle' | 'recording' | 'paused' | 'done'>('idle');
   const [selectedFolderId, setSelectedFolderId] = useState<string>(folders[0]?.id || '');
@@ -173,6 +196,10 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({ isOpen, 
       if (selectedFolderId && selectedFolderId !== 'root-notes') {
         formData.append('folderId', selectedFolderId);
       }
+      const durationSeconds = await readAudioBlobDurationSeconds(finalBlobRef.current);
+      if (durationSeconds) {
+        formData.append('durationSeconds', String(durationSeconds));
+      }
       
       const response = await apiClient.fetchWithAuth('/notes/upload-audio', {
         method: 'POST',
@@ -191,7 +218,8 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({ isOpen, 
                 ...realNote,
                 tags: realNote.tags ? realNote.tags.map((t: any) => t.name) : [],
                 tagIds: realNote.tags ? realNote.tags.map((t: any) => t.id) : [],
-                fileUrl: realNote.fileUrl ? buildApiUrl(`/notes/${realNote.id}/file`) : undefined
+                fileUrl: realNote.fileUrl ? buildApiUrl(`/notes/${realNote.id}/file`) : undefined,
+                durationSeconds: realNote.durationSeconds
               });
             }
             onClose();
@@ -211,6 +239,7 @@ export const VoiceRecorderModal: React.FC<VoiceRecorderModalProps> = ({ isOpen, 
               folderId: selectedFolderId && selectedFolderId !== 'root-notes' ? selectedFolderId : undefined,
               fileUrl: data.fileUrl ? buildApiUrl(`/notes/${data.noteId || data.id}/file`) : undefined,
               fileType: data.fileType || 'audio',
+              durationSeconds: data.durationSeconds,
               vectorSyncStatus: data.vectorSyncStatus ?? 'pending',
               vectorSyncError: data.vectorSyncError,
               vectorSyncedAtUtc: data.vectorSyncedAtUtc

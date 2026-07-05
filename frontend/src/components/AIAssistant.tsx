@@ -17,6 +17,8 @@ interface Citation {
   title: string;
   sourceType: string;
   sourceLabel: string;
+  folderPath?: string;
+  durationSeconds?: number;
   snippet: string;
 }
 
@@ -32,7 +34,7 @@ interface Message {
   id: number;
   role: string;
   text: string;
-  sources?: Array<{ id: string; title: string }>;
+  sources?: Array<{ id: string; title: string; folderPath?: string }>;
   citations?: Citation[];
   producedByMode?: string;
   suggestModeSwitch?: boolean;
@@ -142,6 +144,44 @@ type MarkdownSegment =
   | { type: 'text'; content: string }
   | { type: 'table'; headers: string[]; rows: string[][] };
 
+const parseOptionalNumber = (value: unknown): number | undefined => {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+};
+
+const formatDurationLabel = (durationSeconds?: number) => {
+  if (!durationSeconds || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+    return '';
+  }
+
+  const totalSeconds = Math.round(durationSeconds);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+};
+
+const isEmptyTimestampLabel = (value?: string) => {
+  if (!value) return false;
+  return /^~?0{1,2}:00$/.test(value.trim());
+};
+
+const getCitationSubtitle = (citation: Citation) => {
+  if (citation.sourceType === 'audio') {
+    const durationLabel = formatDurationLabel(citation.durationSeconds);
+    return durationLabel ? `Ses kaydı • ${durationLabel}` : 'Ses kaydı';
+  }
+
+  if (citation.folderPath) {
+    return citation.folderPath;
+  }
+
+  if (citation.sourceLabel && !isEmptyTimestampLabel(citation.sourceLabel)) {
+    return citation.sourceLabel;
+  }
+
+  return citation.sourceType === 'pdf' ? 'PDF belge' : 'Belge';
+};
+
 const citationMarkdownComponents = (msg: Message) => ({
   a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {
     if (href?.startsWith('#cite-')) {
@@ -150,7 +190,7 @@ const citationMarkdownComponents = (msg: Message) => ({
       const num = citationIdx !== undefined && citationIdx >= 0 ? citationIdx + 1 : refId.replace(/^c/i, '');
       const citation = msg.citations?.find(c => c.refId === refId);
       const tooltipText = citation
-        ? `${citation.title || 'İsimsiz Dosya'}${citation.sourceLabel ? ` (${citation.sourceLabel})` : ''}\n\n"${citation.snippet}"`
+        ? `${citation.title || 'İsimsiz Dosya'} (${getCitationSubtitle(citation)})\n\n"${citation.snippet}"`
         : '';
 
       return (
@@ -449,7 +489,8 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onCollapse, onSelectNo
                   if (meta.sources) {
                     sources = meta.sources.map((s: any) => ({
                       id: s.NoteId || s.id || '',
-                      title: s.Title || s.title || ''
+                      title: s.Title || s.title || '',
+                      folderPath: s.FolderPath || s.folderPath || ''
                     }));
                   }
                   if (meta.citations) {
@@ -459,6 +500,8 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onCollapse, onSelectNo
                       title: c.Title || c.title || '',
                       sourceType: c.SourceType || c.sourceType || 'note',
                       sourceLabel: c.SourceLabel || c.sourceLabel || '',
+                      folderPath: c.FolderPath || c.folderPath || '',
+                      durationSeconds: parseOptionalNumber(c.DurationSeconds ?? c.durationSeconds),
                       snippet: c.Snippet || c.snippet || ''
                     }));
                   }
@@ -570,7 +613,8 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onCollapse, onSelectNo
                   if (data.sources && data.sources.length > 0) {
                     updates.sources = data.sources.map((s: any) => ({
                       id: s.NoteId || s.noteId || '',
-                      title: s.Title || s.title || ''
+                      title: s.Title || s.title || '',
+                      folderPath: s.FolderPath || s.folderPath || ''
                     }));
                   }
                   if (data.citations && data.citations.length > 0) {
@@ -580,6 +624,8 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onCollapse, onSelectNo
                       title: c.Title || c.title || '',
                       sourceType: c.SourceType || c.sourceType || 'note',
                       sourceLabel: c.SourceLabel || c.sourceLabel || '',
+                      folderPath: c.FolderPath || c.folderPath || '',
+                      durationSeconds: parseOptionalNumber(c.DurationSeconds ?? c.durationSeconds),
                       snippet: c.Snippet || c.snippet || ''
                     }));
                   }
@@ -817,7 +863,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onCollapse, onSelectNo
                           key={idx}
                           onClick={() => onSelectNote && cite.noteId && onSelectNote(cite.noteId)}
                           className="bg-ns-bg-tertiary/75 border border-ns-border/75 p-2 rounded-xl flex items-center gap-2.5 text-left hover:bg-ns-surface-hover/70 hover:border-ns-primary/40 transition-all group cursor-pointer max-w-full sm:max-w-[220px]"
-                          title={cite.snippet}
+                          title={`${cite.title || 'İsimsiz Dosya'} - ${getCitationSubtitle(cite)}\n${cite.snippet}`}
                         >
                           <div className="w-5 h-5 bg-ns-primary/10 rounded-md flex items-center justify-center text-ns-primary shrink-0 group-hover:bg-ns-primary/20 transition-colors font-bold text-[10px]">
                             {idx + 1}
@@ -827,7 +873,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onCollapse, onSelectNo
                               {cite.title || 'İsimsiz Dosya'}
                             </div>
                             <div className="text-[9px] text-ns-text-muted truncate mt-0.5">
-                              {cite.sourceLabel || 'Belge'}
+                              {getCitationSubtitle(cite)}
                             </div>
                           </div>
                         </button>
@@ -860,6 +906,9 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onCollapse, onSelectNo
                         </div>
                         <div className="flex-1 min-w-0 pr-2">
                           <div className="text-[11px] font-medium text-ns-text-primary truncate">{src.title || 'İsimsiz Dosya'}</div>
+                          {src.folderPath && (
+                            <div className="mt-0.5 truncate text-[9px] text-ns-text-muted">{src.folderPath}</div>
+                          )}
                         </div>
                       </button>
                     ))}

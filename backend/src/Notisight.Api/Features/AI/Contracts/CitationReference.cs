@@ -6,4 +6,6 @@ public sealed record CitationReference(
     string Title,
     string SourceType,
     string SourceLabel,
-    string Snippet);
+    string Snippet,
+    string FolderPath = "",
+    double? DurationSeconds = null);

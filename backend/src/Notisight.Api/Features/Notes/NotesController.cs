@@ -286,6 +286,7 @@ public sealed class NotesController(
             tags,
             note.FileUrl,
             note.FileType,
+            note.DurationSeconds,
             note.VectorSyncStatus,
             note.VectorSyncError,
             note.VectorSyncedAtUtc);

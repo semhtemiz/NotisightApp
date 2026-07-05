@@ -57,7 +57,7 @@ public sealed class TextChunkingService(IOptions<RagOptions> ragOptions) : IText
         return chunks;
     }
 
-    public IReadOnlyList<ChunkedNote> ChunkAudio(Guid noteId, string title, string transcript)
+    public IReadOnlyList<ChunkedNote> ChunkAudio(Guid noteId, string title, string transcript, double? durationSeconds = null)
     {
         if (string.IsNullOrWhiteSpace(transcript))
         {
@@ -85,7 +85,7 @@ public sealed class TextChunkingService(IOptions<RagOptions> ragOptions) : IText
             {
                 // Estimate timestamp based on word position ratio
                 var ratio = totalWords > 0 ? (double)wordsProcessed / totalWords : 0;
-                var label = FormatTimestamp(ratio);
+                var label = FormatTimestamp(ratio, durationSeconds);
 
                 chunks.Add(new ChunkedNote(
                     Guid.NewGuid(),
@@ -120,7 +120,7 @@ public sealed class TextChunkingService(IOptions<RagOptions> ragOptions) : IText
         if (currentChunkSentences.Count > 0)
         {
             var ratio = totalWords > 0 ? (double)wordsProcessed / totalWords : 1;
-            var label = FormatTimestamp(Math.Max(0, ratio - (double)currentWordCount / totalWords));
+            var label = FormatTimestamp(Math.Max(0, ratio - (double)currentWordCount / totalWords), durationSeconds);
 
             chunks.Add(new ChunkedNote(
                 Guid.NewGuid(),
@@ -208,13 +208,19 @@ public sealed class TextChunkingService(IOptions<RagOptions> ragOptions) : IText
     private static int GetWordCount(string text) =>
         text.Split((char[])null!, StringSplitOptions.RemoveEmptyEntries).Length;
 
-    private static string FormatTimestamp(double ratio)
+    private static string FormatTimestamp(double ratio, double? durationSeconds)
     {
-        // Estimate assuming ~150 words per minute for typical speech
-        // This is a rough approximation; ratio is position within transcript
-        var estimatedMinutes = ratio * 60; // assume max ~60 min recording
-        var mins = (int)estimatedMinutes;
-        var secs = (int)((estimatedMinutes - mins) * 60);
-        return $"~{mins:D2}:{secs:D2}";
+        if (!durationSeconds.HasValue || durationSeconds.Value <= 0)
+        {
+            return string.Empty;
+        }
+
+        var timestampSeconds = Math.Clamp(
+            (int)Math.Round(ratio * durationSeconds.Value),
+            0,
+            Math.Max(0, (int)Math.Round(durationSeconds.Value)));
+        var mins = timestampSeconds / 60;
+        var secs = timestampSeconds % 60;
+        return $"{mins:D2}:{secs:D2}";
     }
 }

@@ -22,8 +22,12 @@ public sealed partial class RagAnswerService : IRagAnswerService
         PersonalityTone tone = PersonalityTone.Casual)
     {
         var sources = chunks
-            .GroupBy(x => new { x.Chunk.NoteId, x.Chunk.Title })
-            .Select(group => new AskSourceReference(group.Key.NoteId, group.Key.Title, group.Max(x => x.Score)))
+            .GroupBy(x => new { x.Chunk.NoteId, x.Chunk.Title, x.Chunk.FolderPath })
+            .Select(group => new AskSourceReference(
+                group.Key.NoteId,
+                group.Key.Title,
+                group.Max(x => x.Score),
+                group.Key.FolderPath))
             .OrderByDescending(x => x.Score)
             .ToList();
 
@@ -38,9 +42,19 @@ public sealed partial class RagAnswerService : IRagAnswerService
             var locationInfo = !string.IsNullOrEmpty(match.Chunk.SourceLabel)
                 ? $" ({match.Chunk.SourceLabel})"
                 : "";
+            var folderPath = string.IsNullOrWhiteSpace(match.Chunk.FolderPath)
+                ? "Ana dizin"
+                : match.Chunk.FolderPath;
+            var durationInfo = match.Chunk.DurationSeconds.HasValue
+                ? $"{Environment.NewLine}Sure: {FormatDuration(match.Chunk.DurationSeconds.Value)}"
+                : "";
 
             contextChunks.Add(
-                $"[ID: {refId}] Kaynak: {match.Chunk.Title}{locationInfo}\n{match.Chunk.Content}");
+                $"[ID: {refId}] Kaynak: {match.Chunk.Title}{locationInfo}{Environment.NewLine}" +
+                $"Dosya adi: {match.Chunk.Title}{Environment.NewLine}" +
+                $"Konum: {folderPath}{Environment.NewLine}" +
+                $"Tur: {match.Chunk.SourceType}{durationInfo}{Environment.NewLine}" +
+                $"Icerik:{Environment.NewLine}{match.Chunk.Content}");
         }
 
         var fullPrompt = $"Soru: {query}";
@@ -83,7 +97,9 @@ public sealed partial class RagAnswerService : IRagAnswerService
                 chunk.Chunk.Title,
                 chunk.Chunk.SourceType,
                 chunk.Chunk.SourceLabel,
-                Trim(chunk.Chunk.Content, 120)));
+                Trim(chunk.Chunk.Content, 120),
+                chunk.Chunk.FolderPath,
+                chunk.Chunk.DurationSeconds));
         }
 
         return citations;
@@ -95,5 +111,13 @@ public sealed partial class RagAnswerService : IRagAnswerService
     private static string Trim(string text, int length)
     {
         return text.Length <= length ? text : text[..length] + "...";
+    }
+
+    private static string FormatDuration(double durationSeconds)
+    {
+        var totalSeconds = Math.Max(0, (int)Math.Round(durationSeconds));
+        var minutes = totalSeconds / 60;
+        var seconds = totalSeconds % 60;
+        return $"{minutes:D2}:{seconds:D2}";
     }
 }
