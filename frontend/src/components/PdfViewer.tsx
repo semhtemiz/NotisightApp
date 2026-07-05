@@ -94,7 +94,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ note, folderPathStr, onUpd
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-ns-bg-primary h-full relative">
+    <div className="flex-1 flex min-h-0 flex-col overflow-hidden bg-ns-bg-primary h-full relative">
       <header className="h-12 border-b border-ns-border flex items-center px-4 md:px-8 gap-4 justify-between shrink-0 bg-ns-bg-primary/95 backdrop-blur-sm z-10">
         <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-ns-text-muted text-xs">
           <span className="truncate">{folderPathStr || 'çalışma alanı'}</span>
@@ -164,7 +164,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ note, folderPathStr, onUpd
         )}
       </header>
       
-      <div className="flex-1 w-full overflow-auto bg-ns-bg-secondary flex justify-start md:justify-center p-3 md:p-8 no-scrollbar">
+      <div className="mobile-scroll-area flex-1 min-h-0 w-full overflow-auto bg-ns-bg-secondary flex justify-start md:justify-center p-3 md:p-8 no-scrollbar">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-ns-text-muted">
             <Loader2 className="w-8 h-8 animate-spin text-ns-primary" />

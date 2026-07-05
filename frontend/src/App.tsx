@@ -47,7 +47,7 @@ export default function App() {
   }, []);
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-ns-bg-primary font-sans antialiased text-ns-text-primary">
+    <div className="h-[100dvh] w-screen overflow-hidden bg-ns-bg-primary font-sans antialiased text-ns-text-primary md:h-screen">
       <Suspense fallback={<AppFallback />}>
         {view === 'auth' && (
           <AuthScreen onLogin={() => setView('app')} />

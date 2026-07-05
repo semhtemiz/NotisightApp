@@ -53,6 +53,7 @@ test_api.cs
 test_openrouter.cs
 
 # Local tooling caches and profiles
+.artifacts/
 .dotnet/
 .nuget/
 .npm-cache/

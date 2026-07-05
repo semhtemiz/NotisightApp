@@ -34,7 +34,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ onCreateNote, onUpload, 
   const greeting = currentUserName ? `Merhaba, ${currentUserName}` : 'Merhaba';
 
   return (
-    <main className="relative flex-1 flex flex-col bg-ns-bg-primary h-full items-center justify-center overflow-hidden p-6 text-center text-ns-text-primary">
+    <main className="mobile-scroll-area relative flex-1 min-h-0 flex flex-col bg-ns-bg-primary h-full items-center justify-start overflow-y-auto overflow-x-hidden p-6 pb-10 text-center text-ns-text-primary md:justify-center">
       <div className="pointer-events-none absolute inset-x-[18%] top-[18%] h-56 rounded-full bg-ns-primary/8 blur-3xl" />
       <div className="pointer-events-none absolute bottom-[18%] left-[30%] h-40 w-40 rounded-full bg-ns-green-glow/8 blur-3xl" />
 
