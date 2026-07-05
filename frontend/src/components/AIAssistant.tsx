@@ -3,6 +3,7 @@ import { Send, FileText, Bot, PanelRightClose, X, Plus, Eye, EyeOff, ChevronUp, 
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import { apiClient } from '../utils/apiClient';
+import { DeleteConfirmModal } from './DeleteConfirmModal';
 
 interface AIAssistantProps {
   onCollapse: () => void;
@@ -341,6 +342,11 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onCollapse, onSelectNo
   const [isAISettingsOpen, setIsAISettingsOpen] = useState(false);
   const [customModelId, setCustomModelId] = useState(() => localStorage.getItem('notisight_ai_custom_model') || "");
   const [isCustomModel, setIsCustomModel] = useState(() => localStorage.getItem('notisight_ai_is_custom_model') === 'true');
+  const [deleteSessionState, setDeleteSessionState] = useState<{ isOpen: boolean; sessionId: string; sessionTitle: string }>({
+    isOpen: false,
+    sessionId: '',
+    sessionTitle: ''
+  });
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const toneDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -709,10 +715,20 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onCollapse, onSelectNo
     }
   };
 
-  const deleteSession = async (idToDelete: string, e: React.MouseEvent) => {
+  const deleteSession = (idToDelete: string, e: React.MouseEvent) => {
     e.stopPropagation();
     
-    if (!window.confirm('Bu sohbet oturumunu silmek istediğinize emin misiniz?')) return;
+    const session = sessions.find(s => s.id === idToDelete);
+    setDeleteSessionState({
+      isOpen: true,
+      sessionId: idToDelete,
+      sessionTitle: session?.title || 'Sohbet'
+    });
+  };
+
+  const confirmDeleteSession = async () => {
+    const idToDelete = deleteSessionState.sessionId;
+    if (!idToDelete) return;
 
     try {
       if (!idToDelete.startsWith('new_')) {
@@ -735,6 +751,8 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onCollapse, onSelectNo
       }
     } catch (err) {
       console.error('Silme hatası:', err);
+    } finally {
+      setDeleteSessionState({ isOpen: false, sessionId: '', sessionTitle: '' });
     }
   };
 
@@ -1209,6 +1227,13 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ onCollapse, onSelectNo
           </>
         )}
       </AnimatePresence>
+      <DeleteConfirmModal
+        isOpen={deleteSessionState.isOpen}
+        onClose={() => setDeleteSessionState({ isOpen: false, sessionId: '', sessionTitle: '' })}
+        onConfirm={confirmDeleteSession}
+        itemName={deleteSessionState.sessionTitle}
+        itemType="chat"
+      />
     </aside>
   );
 };

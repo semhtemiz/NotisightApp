@@ -49,6 +49,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onBack, onLogout }
   const [apiProviders, setApiProviders] = useState<any[]>([]);
   const [apiLoading, setApiLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [apiMessage, setApiMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const avatarSeeds = ['Felix', 'Aneka', 'Jude', 'Oliver', 'Mia', 'Leo', 'Noah', 'Emma'];
 
@@ -151,20 +152,21 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onBack, onLogout }
   const handleUpdateApiKey = async (providerType: number, apiKey: string, customBaseUrl: string | null) => {
     const provider = apiProviders.find(item => item.providerType === providerType);
     if (!provider?.isConfigured && !apiKey.trim()) {
-      alert('İlk kurulum için API anahtarı girin.');
+      setApiMessage({ type: 'error', text: 'İlk kurulum için API anahtarı girin.' });
       return;
     }
 
+    setApiMessage(null);
     try {
       await apiClient.post('/api/settings/ai-providers', {
         providerType,
         apiKey: apiKey.trim(),
         customBaseUrl
       });
-      alert('API bağlantısı başarıyla kaydedildi.');
+      setApiMessage({ type: 'success', text: 'API bağlantısı başarıyla kaydedildi.' });
       fetchApiProviders();
     } catch (err: any) {
-      alert('Hata: ' + (err.message || 'API bağlantısı kaydedilemedi.'));
+      setApiMessage({ type: 'error', text: err.message || 'API bağlantısı kaydedilemedi.' });
     }
   };
 
@@ -568,6 +570,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onBack, onLogout }
 
                 {apiLoading && <p className="text-sm text-ns-text-secondary">Yükleniyor...</p>}
                 {apiError && <p className="text-sm font-medium text-ns-error">{apiError}</p>}
+                {apiMessage && (
+                  <div className={`mb-4 flex items-start gap-2 rounded-xl border px-3 py-2 text-sm ${
+                    apiMessage.type === 'success'
+                      ? 'border-ns-primary/20 bg-ns-primary/10 text-ns-primary'
+                      : 'border-ns-error/25 bg-ns-error/10 text-ns-error'
+                  }`}>
+                    {apiMessage.type === 'success' ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />}
+                    <span>{apiMessage.text}</span>
+                  </div>
+                )}
 
                 {!apiLoading && !apiError && (
                   <div className="space-y-4">
