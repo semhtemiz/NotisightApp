@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Plus, FileText, Mic } from 'lucide-react';
-import emptyStateLogoUrl from '../assets/emptystate_logo.svg';
+import emptyStateLogoUrl from '../assets/logo.svg';
 import { CURRENT_USER_CHANGED_EVENT, getDisplayUserName, readStoredUser } from '../utils/currentUser';
 
 interface EmptyStateProps {
