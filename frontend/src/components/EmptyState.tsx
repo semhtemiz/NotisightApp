@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Plus, FileText, Mic } from 'lucide-react';
 import emptyStateLogoUrl from '../assets/emptystate_logo.svg';
+import { CURRENT_USER_CHANGED_EVENT, getDisplayUserName, readStoredUser } from '../utils/currentUser';
 
 interface EmptyStateProps {
   onCreateNote: () => void;
@@ -15,6 +16,23 @@ interface EmptyStateProps {
  * Kullanıcıya "Yeni Not", "Belge Yükle" veya "Ses Kaydet" gibi hızlı eylem başlangıçları sunar.
  */
 export const EmptyState: React.FC<EmptyStateProps> = ({ onCreateNote, onUpload, onRecordVoiceNote }) => {
+  const [currentUserName, setCurrentUserName] = useState(() => getDisplayUserName(readStoredUser()));
+
+  useEffect(() => {
+    const syncUserName = () => setCurrentUserName(getDisplayUserName(readStoredUser()));
+
+    syncUserName();
+    window.addEventListener(CURRENT_USER_CHANGED_EVENT, syncUserName);
+    window.addEventListener('storage', syncUserName);
+
+    return () => {
+      window.removeEventListener(CURRENT_USER_CHANGED_EVENT, syncUserName);
+      window.removeEventListener('storage', syncUserName);
+    };
+  }, []);
+
+  const greeting = currentUserName ? `Merhaba, ${currentUserName}` : 'Merhaba';
+
   return (
     <main className="relative flex-1 flex flex-col bg-ns-bg-primary h-full items-center justify-center overflow-hidden p-6 text-center text-ns-text-primary">
       <div className="pointer-events-none absolute inset-x-[18%] top-[18%] h-56 rounded-full bg-ns-primary/8 blur-3xl" />
@@ -35,7 +53,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ onCreateNote, onUpload, 
 
         <div className="mb-10 max-w-xl">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-ns-primary/90">Notisight Workspace</p>
-          <h2 className="text-3xl font-semibold tracking-normal text-ns-text-primary sm:text-4xl">Senin verin, senin zekan.</h2>
+          <h2 className="text-3xl font-semibold tracking-normal text-ns-text-primary sm:text-4xl">{greeting}</h2>
           <p className="mt-3 text-sm leading-6 text-ns-text-secondary sm:text-base">
             Başlamak için bir not seçin veya yeni bir düşünce, belge veya ses kaydı ekleyin.
           </p>

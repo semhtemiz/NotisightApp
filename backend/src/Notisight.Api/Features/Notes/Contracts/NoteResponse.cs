@@ -10,6 +10,7 @@ public sealed record NoteResponse(
     IReadOnlyList<TagSummaryResponse> Tags,
     string? FileUrl = null,
     string? FileType = null,
+    double? DurationSeconds = null,
     string? VectorSyncStatus = null,
     string? VectorSyncError = null,
     DateTimeOffset? VectorSyncedAtUtc = null);

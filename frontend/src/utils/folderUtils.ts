@@ -136,3 +136,136 @@ export const deleteFolder = (folders: Folder[], folderId: string): Folder[] => {
     return f;
   });
 };
+
+export const moveNoteInFolderTree = (
+  folders: Folder[],
+  noteId: string,
+  targetFolderId: string | null,
+  rootFolderId: string,
+  rootFolderName: string
+): { folders: Folder[]; note?: Note } => {
+  let movedNote: Note | undefined;
+
+  const removeNote = (items: Folder[]): Folder[] =>
+    items.map(folder => {
+      const existingNote = folder.notes.find(note => note.id === noteId);
+      if (existingNote) {
+        movedNote = existingNote;
+        return { ...folder, notes: folder.notes.filter(note => note.id !== noteId) };
+      }
+
+      return {
+        ...folder,
+        folders: folder.folders ? removeNote(folder.folders) : folder.folders
+      };
+    });
+
+  const withoutNote = removeNote(folders);
+  if (!movedNote) {
+    return { folders };
+  }
+
+  const normalizedTargetId = targetFolderId === rootFolderId ? null : targetFolderId;
+  const updatedNote = { ...movedNote, folderId: normalizedTargetId ?? undefined };
+
+  if (normalizedTargetId) {
+    return {
+      folders: addNoteToFolder(withoutNote, normalizedTargetId, updatedNote),
+      note: updatedNote
+    };
+  }
+
+  const rootIndex = withoutNote.findIndex(folder => folder.id === rootFolderId);
+  if (rootIndex >= 0) {
+    const nextFolders = [...withoutNote];
+    const rootFolder = nextFolders[rootIndex];
+    nextFolders[rootIndex] = {
+      ...rootFolder,
+      isOpen: true,
+      notes: [updatedNote, ...rootFolder.notes]
+    };
+    return { folders: nextFolders, note: updatedNote };
+  }
+
+  return {
+    folders: [
+      {
+        id: rootFolderId,
+        name: rootFolderName,
+        isOpen: true,
+        notes: [updatedNote],
+        folders: []
+      },
+      ...withoutNote
+    ],
+    note: updatedNote
+  };
+};
+
+export const isFolderDescendant = (
+  folders: Folder[],
+  folderId: string,
+  possibleDescendantId: string
+): boolean => {
+  const folder = findFolder(folders, folderId);
+  if (!folder?.folders) {
+    return false;
+  }
+
+  const stack = [...folder.folders];
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    if (current.id === possibleDescendantId) {
+      return true;
+    }
+    if (current.folders) {
+      stack.push(...current.folders);
+    }
+  }
+
+  return false;
+};
+
+export const moveFolderInFolderTree = (
+  folders: Folder[],
+  folderId: string,
+  targetParentId: string | null,
+  rootFolderId: string
+): { folders: Folder[]; folder?: Folder } => {
+  let movedFolder: Folder | undefined;
+
+  const removeFolder = (items: Folder[]): Folder[] =>
+    items
+      .filter(folder => {
+        if (folder.id === folderId) {
+          movedFolder = folder;
+          return false;
+        }
+        return true;
+      })
+      .map(folder => ({
+        ...folder,
+        folders: folder.folders ? removeFolder(folder.folders) : folder.folders
+      }));
+
+  const withoutFolder = removeFolder(folders);
+  if (!movedFolder) {
+    return { folders };
+  }
+
+  const normalizedParentId = targetParentId === rootFolderId ? null : targetParentId;
+  const updatedFolder = {
+    ...movedFolder,
+    parentFolderId: normalizedParentId,
+    isOpen: true
+  };
+
+  if (!normalizedParentId) {
+    return { folders: [...withoutFolder, updatedFolder], folder: updatedFolder };
+  }
+
+  return {
+    folders: addFolderToParent(withoutFolder, normalizedParentId, updatedFolder),
+    folder: updatedFolder
+  };
+};

@@ -12,6 +12,29 @@ interface KnowledgeIngestionModalProps {
   targetFolderId?: string | null;
 }
 
+const readAudioDurationSeconds = (file: File): Promise<number | undefined> =>
+  new Promise(resolve => {
+    const audio = document.createElement('audio');
+    const objectUrl = URL.createObjectURL(file);
+
+    const cleanup = () => {
+      URL.revokeObjectURL(objectUrl);
+      audio.removeAttribute('src');
+    };
+
+    audio.preload = 'metadata';
+    audio.onloadedmetadata = () => {
+      const duration = audio.duration;
+      cleanup();
+      resolve(Number.isFinite(duration) && duration > 0 ? duration : undefined);
+    };
+    audio.onerror = () => {
+      cleanup();
+      resolve(undefined);
+    };
+    audio.src = objectUrl;
+  });
+
 export const KnowledgeIngestionModal: React.FC<KnowledgeIngestionModalProps> = ({ isOpen, onClose, onNoteCreated, targetFolderId }) => {
   const [activeTab, setActiveTab] = useState<'document' | 'audio'>('document');
   const [isUploading, setIsUploading] = useState(false);
@@ -31,6 +54,12 @@ export const KnowledgeIngestionModal: React.FC<KnowledgeIngestionModalProps> = (
         }
         
         const endpoint = file.name.endsWith('.pdf') ? '/notes/upload-pdf' : '/notes/upload-audio';
+        if (endpoint === '/notes/upload-audio') {
+          const durationSeconds = await readAudioDurationSeconds(file);
+          if (durationSeconds) {
+            formData.append('durationSeconds', String(durationSeconds));
+          }
+        }
 
         const response = await apiClient.fetchWithAuth(endpoint, {
           method: 'POST',
@@ -49,7 +78,8 @@ export const KnowledgeIngestionModal: React.FC<KnowledgeIngestionModalProps> = (
                   ...realNote,
                   tags: realNote.tags ? realNote.tags.map((t: any) => t.name) : [],
                   tagIds: realNote.tags ? realNote.tags.map((t: any) => t.id) : [],
-                  fileUrl: realNote.fileUrl ? buildApiUrl(`/notes/${realNote.id}/file`) : undefined
+                  fileUrl: realNote.fileUrl ? buildApiUrl(`/notes/${realNote.id}/file`) : undefined,
+                  durationSeconds: realNote.durationSeconds
                 });
               }
               onClose();
@@ -71,6 +101,7 @@ export const KnowledgeIngestionModal: React.FC<KnowledgeIngestionModalProps> = (
                folderId: targetFolderId || undefined,
                 fileUrl: data.fileUrl ? buildApiUrl(`/notes/${data.noteId || data.id}/file`) : undefined,
                fileType: data.fileType,
+               durationSeconds: data.durationSeconds,
                vectorSyncStatus: data.vectorSyncStatus ?? 'pending',
                vectorSyncError: data.vectorSyncError,
                vectorSyncedAtUtc: data.vectorSyncedAtUtc

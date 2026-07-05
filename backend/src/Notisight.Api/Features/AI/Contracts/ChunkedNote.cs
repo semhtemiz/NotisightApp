@@ -7,7 +7,10 @@ public sealed record ChunkedNote(
     string Content,
     int Index,
     string SourceType = "note",
-    string SourceLabel = "")
+    string SourceLabel = "",
+    string FolderPath = "",
+    Guid? FolderId = null,
+    double? DurationSeconds = null)
 {
     public Guid UserId { get; init; }
 }

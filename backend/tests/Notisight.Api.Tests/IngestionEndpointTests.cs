@@ -66,6 +66,7 @@ public sealed class IngestionEndpointTests : IClassFixture<TestApiFactory>
         using var content = new ByteArrayContent(CreateMinimalWav());
         content.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
         form.Add(content, "file", "meeting.wav");
+        form.Add(new StringContent("4.2"), "durationSeconds");
 
         var response = await _client.PostAsync("/notes/upload-audio", form);
 
@@ -77,8 +78,12 @@ public sealed class IngestionEndpointTests : IClassFixture<TestApiFactory>
         var uploaded = (await response.Content.ReadFromJsonAsync<UploadedNoteResponse>())!;
         Assert.Equal("meeting", uploaded.Title);
         Assert.Equal("audio", uploaded.SourceType);
+        Assert.Equal(4.2, uploaded.DurationSeconds);
         Assert.Equal("pending", uploaded.VectorSyncStatus);
         Assert.Contains("meeting.wav", _factory.AudioTranscription.FileNames);
+
+        var note = (await _client.GetFromJsonAsync<NoteResponse>($"/notes/{uploaded.NoteId}"))!;
+        Assert.Equal(4.2, note.DurationSeconds);
 
         await WaitUntilAsync(
             () => _factory.VectorStore.DeletedNoteIds.Contains(uploaded.NoteId) &&
@@ -93,6 +98,8 @@ public sealed class IngestionEndpointTests : IClassFixture<TestApiFactory>
             Assert.Equal(uploaded.NoteId, chunk.NoteId);
             Assert.Equal("meeting", chunk.Title);
             Assert.Contains("Recorded transcript", chunk.Content);
+            Assert.Equal("Ana dizin", chunk.FolderPath);
+            Assert.Equal(4.2, chunk.DurationSeconds);
         });
     }
 

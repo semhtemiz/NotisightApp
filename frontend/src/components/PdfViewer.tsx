@@ -3,7 +3,7 @@ import type { Note } from '../types';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import { ZoomIn, ZoomOut, Loader2, BookOpen } from 'lucide-react';
+import { ZoomIn, ZoomOut, Loader2, BookOpen, Edit2, Check, X } from 'lucide-react';
 import { apiClient } from '../utils/apiClient';
 
 // Setup worker
@@ -15,14 +15,21 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 interface PdfViewerProps {
   note: Note;
   folderPathStr?: string;
+  onUpdate?: (id: string, updates: Partial<Note>) => void;
 }
 
-export const PdfViewer: React.FC<PdfViewerProps> = ({ note, folderPathStr }) => {
+export const PdfViewer: React.FC<PdfViewerProps> = ({ note, folderPathStr, onUpdate }) => {
   const [numPages, setNumPages] = useState<number>();
   const [scale, setScale] = useState<number>(1.0);
   const [pdfData, setPdfData] = useState<Blob | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [draftTitle, setDraftTitle] = useState(note.title || '');
+
+  useEffect(() => {
+    setDraftTitle(note.title || '');
+  }, [note.title]);
 
   useEffect(() => {
     let isMounted = true;
@@ -58,6 +65,34 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ note, folderPathStr }) => 
     setNumPages(numPages);
   }
 
+  const saveTitle = () => {
+    const nextTitle = draftTitle.trim();
+    if (!nextTitle) {
+      setDraftTitle(note.title || '');
+      setIsEditingTitle(false);
+      return;
+    }
+
+    if (nextTitle !== note.title) {
+      onUpdate?.(note.id, { title: nextTitle });
+    }
+    setIsEditingTitle(false);
+  };
+
+  const cancelTitleEdit = () => {
+    setDraftTitle(note.title || '');
+    setIsEditingTitle(false);
+  };
+
+  const handleTitleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      saveTitle();
+    }
+    if (event.key === 'Escape') {
+      cancelTitleEdit();
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col bg-ns-bg-primary h-full relative">
       <header className="h-12 border-b border-ns-border flex items-center px-4 md:px-8 gap-4 justify-between shrink-0 bg-ns-bg-primary/95 backdrop-blur-sm z-10">
@@ -65,7 +100,51 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ note, folderPathStr }) => 
           <span className="truncate">{folderPathStr || 'çalışma alanı'}</span>
           <span className="shrink-0">/</span>
           <BookOpen className="w-3.5 h-3.5 shrink-0" />
-          <span className="text-ns-text-primary truncate font-medium">{note.title || 'İsimsiz PDF'}</span>
+          {isEditingTitle ? (
+            <div className="flex min-w-0 flex-1 items-center gap-1">
+              <input
+                value={draftTitle}
+                onChange={(event) => setDraftTitle(event.target.value)}
+                onBlur={saveTitle}
+                onKeyDown={handleTitleKeyDown}
+                className="min-w-0 flex-1 rounded-md border border-ns-primary/60 bg-ns-bg-secondary px-2 py-1 text-xs font-medium text-ns-text-primary outline-none"
+                autoFocus
+              />
+              <button
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={saveTitle}
+                className="rounded-md p-1 text-ns-primary hover:bg-ns-surface-hover"
+                title="Kaydet"
+              >
+                <Check className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={cancelTitleEdit}
+                className="rounded-md p-1 text-ns-text-muted hover:bg-ns-surface-hover hover:text-ns-text-primary"
+                title="İptal"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="group flex min-w-0 items-center gap-1.5">
+              <span className="text-ns-text-primary truncate font-medium">{note.title || 'İsimsiz PDF'}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setDraftTitle(note.title || '');
+                  setIsEditingTitle(true);
+                }}
+                className="rounded-md p-1 text-ns-text-muted opacity-0 transition-opacity hover:bg-ns-surface-hover hover:text-ns-text-primary group-hover:opacity-100 focus:opacity-100"
+                title="Adı Değiştir"
+              >
+                <Edit2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
         </div>
         
         {numPages && (

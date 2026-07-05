@@ -4,6 +4,7 @@ using Notisight.Api.Features.Ingestion.Contracts;
 using Notisight.Api.Features.Ingestion.Services;
 using Notisight.Api.Infrastructure.Persistence;
 using Notisight.Api.Options;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace Notisight.Api.Features.AI.Services;
@@ -32,8 +33,15 @@ public sealed class NoteVectorSyncService(
             await qdrantVectorService.DeleteByNoteIdAsync(note.Id, cancellationToken);
 
             var chunks = await CreateChunksAsync(note, cancellationToken);
+            var folderPath = await BuildFolderPathAsync(note, cancellationToken);
             chunks = chunks
-                .Select(chunk => chunk with { UserId = note.UserId })
+                .Select(chunk => chunk with
+                {
+                    UserId = note.UserId,
+                    FolderId = note.FolderId,
+                    FolderPath = folderPath,
+                    DurationSeconds = note.DurationSeconds
+                })
                 .ToList();
 
             if (chunks.Count > 0)
@@ -42,7 +50,14 @@ public sealed class NoteVectorSyncService(
                 foreach (var chunk in chunks)
                 {
                     var vector = await embeddingService.EmbedDocumentAsync(
-                        $"{chunk.Title}\n{chunk.Content}",
+                        $"""
+                        Dosya adi: {chunk.Title}
+                        Konum: {chunk.FolderPath}
+                        Tur: {chunk.SourceType}
+                        Kaynak: {chunk.SourceLabel}
+
+                        {chunk.Content}
+                        """,
                         cancellationToken);
 
                     if (vector.Count != _qdrantOptions.VectorSize)
@@ -94,11 +109,39 @@ public sealed class NoteVectorSyncService(
 
         if (note.FileType == "audio")
         {
-            return textChunkingService.ChunkAudio(note.Id, note.Title, note.Content).ToList();
+            return textChunkingService.ChunkAudio(note.Id, note.Title, note.Content, note.DurationSeconds).ToList();
         }
 
         var cleanContent = CleanHtml(note.Content);
         return textChunkingService.Chunk(note.Id, note.Title, cleanContent).ToList();
+    }
+
+    private async Task<string> BuildFolderPathAsync(Note note, CancellationToken cancellationToken)
+    {
+        if (!note.FolderId.HasValue)
+        {
+            return "Ana dizin";
+        }
+
+        var folders = await dbContext.Folders
+            .AsNoTracking()
+            .Where(x => x.UserId == note.UserId)
+            .Select(x => new { x.Id, x.Name, x.ParentFolderId })
+            .ToListAsync(cancellationToken);
+        var folderMap = folders.ToDictionary(x => x.Id);
+        var visited = new HashSet<Guid>();
+        var path = new List<string>();
+        var currentFolderId = note.FolderId;
+
+        while (currentFolderId.HasValue &&
+               visited.Add(currentFolderId.Value) &&
+               folderMap.TryGetValue(currentFolderId.Value, out var folder))
+        {
+            path.Insert(0, folder.Name);
+            currentFolderId = folder.ParentFolderId;
+        }
+
+        return path.Count > 0 ? string.Join(" / ", path) : "Ana dizin";
     }
 
     private static string CleanHtml(string html)

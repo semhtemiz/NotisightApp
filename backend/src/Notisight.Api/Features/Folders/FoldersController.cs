@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Notisight.Api.Domain.Entities;
+using Notisight.Api.Features.AI.Services;
 using Notisight.Api.Features.Folders.Contracts;
 using Notisight.Api.Infrastructure.Auth;
 using Notisight.Api.Infrastructure.Persistence;
@@ -13,7 +14,8 @@ namespace Notisight.Api.Features.Folders;
 [Authorize]
 public sealed class FoldersController(
     ApplicationDbContext dbContext,
-    ICurrentUser currentUser) : ControllerBase
+    ICurrentUser currentUser,
+    IVectorSyncQueue vectorSyncQueue) : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<FolderResponse>), StatusCodes.Status200OK)]
@@ -78,6 +80,7 @@ public sealed class FoldersController(
         folder.ParentFolderId = request.ParentFolderId;
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        await EnqueueFolderTreeNotesAsync(userId, folder.Id, cancellationToken);
 
         return Ok(ToResponse(folder));
     }
@@ -95,6 +98,13 @@ public sealed class FoldersController(
         {
             return NoContent();
         }
+
+        var affectedFolderIds = await GetFolderTreeIdsAsync(userId, id, cancellationToken);
+        var noteIdsToReindex = await dbContext.Notes
+            .AsNoTracking()
+            .Where(x => x.UserId == userId && x.FolderId.HasValue && affectedFolderIds.Contains(x.FolderId.Value))
+            .Select(x => x.Id)
+            .ToListAsync(cancellationToken);
 
         var notesInFolder = await dbContext.Notes
             .Where(x => x.FolderId == id && x.UserId == userId)
@@ -116,6 +126,10 @@ public sealed class FoldersController(
 
         dbContext.Folders.Remove(folder);
         await dbContext.SaveChangesAsync(cancellationToken);
+        foreach (var noteId in noteIdsToReindex)
+        {
+            vectorSyncQueue.EnqueueUpsert(noteId);
+        }
 
         return NoContent();
     }
@@ -188,6 +202,55 @@ public sealed class FoldersController(
 
             currentParentId = nextParentId.Value;
         }
+    }
+
+    private async Task EnqueueFolderTreeNotesAsync(
+        Guid userId,
+        Guid folderId,
+        CancellationToken cancellationToken)
+    {
+        var affectedFolderIds = await GetFolderTreeIdsAsync(userId, folderId, cancellationToken);
+
+        var noteIds = await dbContext.Notes
+            .AsNoTracking()
+            .Where(x => x.UserId == userId && x.FolderId.HasValue && affectedFolderIds.Contains(x.FolderId.Value))
+            .Select(x => x.Id)
+            .ToListAsync(cancellationToken);
+
+        foreach (var noteId in noteIds)
+        {
+            vectorSyncQueue.EnqueueUpsert(noteId);
+        }
+    }
+
+    private async Task<HashSet<Guid>> GetFolderTreeIdsAsync(
+        Guid userId,
+        Guid folderId,
+        CancellationToken cancellationToken)
+    {
+        var folders = await dbContext.Folders
+            .AsNoTracking()
+            .Where(x => x.UserId == userId)
+            .Select(x => new { x.Id, x.ParentFolderId })
+            .ToListAsync(cancellationToken);
+
+        var affectedFolderIds = new HashSet<Guid> { folderId };
+        var added = true;
+        while (added)
+        {
+            added = false;
+            foreach (var candidate in folders)
+            {
+                if (candidate.ParentFolderId.HasValue &&
+                    affectedFolderIds.Contains(candidate.ParentFolderId.Value) &&
+                    affectedFolderIds.Add(candidate.Id))
+                {
+                    added = true;
+                }
+            }
+        }
+
+        return affectedFolderIds;
     }
 
     private static FolderResponse ToResponse(Folder folder) =>

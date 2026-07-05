@@ -106,7 +106,10 @@ public sealed class QdrantVectorService(
                 chunk.Content,
                 chunk.Index,
                 chunk.SourceType,
-                chunk.SourceLabel))).ToArray();
+                chunk.SourceLabel,
+                chunk.FolderPath,
+                chunk.FolderId,
+                chunk.DurationSeconds))).ToArray();
 
         using var response = await SendAsync(
             HttpMethod.Put,
@@ -343,11 +346,20 @@ public sealed class QdrantVectorService(
         var userId = Guid.TryParse(userIdText, out var parsedUserId) ? parsedUserId : Guid.Empty;
         TryGetString(point.Payload, "sourceType", out var sourceType);
         TryGetString(point.Payload, "sourceLabel", out var sourceLabel);
+        TryGetString(point.Payload, "folderPath", out var folderPath);
+        TryGetString(point.Payload, "folderId", out var folderIdText);
+        var folderId = Guid.TryParse(folderIdText, out var parsedFolderId) ? parsedFolderId : (Guid?)null;
+        var durationSeconds = TryGetDouble(point.Payload, "durationSeconds", out var parsedDuration)
+            ? parsedDuration
+            : (double?)null;
         var chunkId = TryGetGuid(point.Id, out var parsedChunkId) ? parsedChunkId : Guid.NewGuid();
         return new SearchChunkResult(
             new ChunkedNote(chunkId, noteId, title, content, index, 
                 string.IsNullOrEmpty(sourceType) ? "note" : sourceType,
-                sourceLabel ?? "")
+                sourceLabel ?? "",
+                folderPath ?? "",
+                folderId,
+                durationSeconds)
             {
                 UserId = userId
             },
@@ -391,6 +403,15 @@ public sealed class QdrantVectorService(
         return payload.TryGetValue(key, out var element) && element.TryGetInt32(out value);
     }
 
+    private static bool TryGetDouble(
+        IReadOnlyDictionary<string, JsonElement> payload,
+        string key,
+        out double value)
+    {
+        value = 0;
+        return payload.TryGetValue(key, out var element) && element.TryGetDouble(out value);
+    }
+
     private sealed record CreateCollectionRequest(VectorConfig Vectors);
 
     private sealed record VectorConfig(int Size, string Distance);
@@ -410,7 +431,10 @@ public sealed class QdrantVectorService(
         string Content,
         int Index,
         string SourceType,
-        string SourceLabel);
+        string SourceLabel,
+        string FolderPath,
+        Guid? FolderId,
+        double? DurationSeconds);
 
     private sealed record DeletePointsRequest(Filter Filter);
 

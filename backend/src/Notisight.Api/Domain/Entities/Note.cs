@@ -9,6 +9,7 @@ public sealed class Note
     public string Content { get; set; } = string.Empty;
     public string? FileUrl { get; set; }
     public string? FileType { get; set; }
+    public double? DurationSeconds { get; set; }
     public string VectorSyncStatus { get; set; } = Domain.Entities.VectorSyncStatus.Pending;
     public string? VectorSyncError { get; set; }
     public DateTimeOffset? VectorSyncedAtUtc { get; set; }

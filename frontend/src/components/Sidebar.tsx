@@ -4,6 +4,28 @@ import type { Folder, Note } from '../types';
 import { apiClient } from '../utils/apiClient';
 import { CURRENT_USER_CHANGED_EVENT, getDisplayUserName, readStoredUser, writeStoredUser } from '../utils/currentUser';
 
+type TreeDragPayload = {
+  type: 'note' | 'folder';
+  id: string;
+};
+
+const TREE_DRAG_DATA_TYPE = 'application/x-notisight-tree-item';
+
+const readTreeDragPayload = (event: React.DragEvent): TreeDragPayload | null => {
+  try {
+    const rawPayload = event.dataTransfer.getData(TREE_DRAG_DATA_TYPE);
+    if (!rawPayload) return null;
+    const payload = JSON.parse(rawPayload);
+    if ((payload.type === 'note' || payload.type === 'folder') && typeof payload.id === 'string') {
+      return payload;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+};
+
 interface FolderItemProps {
   folder: Folder;
   level: number;
@@ -16,6 +38,8 @@ interface FolderItemProps {
   onUpdateFolderName: (id: string, name: string) => void;
   onDeleteNote: (id: string, name: string) => void;
   onDeleteFolder: (id: string, name: string) => void;
+  onMoveNote: (noteId: string, targetFolderId: string | null) => void;
+  onMoveFolder: (folderId: string, targetParentId: string | null) => void;
 }
 
 /**
@@ -33,7 +57,9 @@ const FolderItem: React.FC<FolderItemProps> = ({
   onToggleFolder,
   onUpdateFolderName,
   onDeleteNote,
-  onDeleteFolder
+  onDeleteFolder,
+  onMoveNote,
+  onMoveFolder
 }) => {
   // Klasör adının "düzenleme" modunda olup olmadığını tutar
   const [isEditing, setIsEditing] = useState(false);
@@ -79,12 +105,52 @@ const FolderItem: React.FC<FolderItemProps> = ({
   // Bu klasörün o anda "seçili" klasör olup olmadığını kontrol edip ona göre stil belirleyeceğiz
   const isFolderActive = activeFolderId === folder.id;
 
+  const handleFolderDragStart = (event: React.DragEvent<HTMLDivElement>) => {
+    if (folder.id === 'root-notes' || isEditing) {
+      event.preventDefault();
+      return;
+    }
+
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData(TREE_DRAG_DATA_TYPE, JSON.stringify({ type: 'folder', id: folder.id }));
+  };
+
+  const handleDropOnFolder = (event: React.DragEvent<HTMLDivElement>) => {
+    const payload = readTreeDragPayload(event);
+    if (!payload) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (payload.type === 'note') {
+      onMoveNote(payload.id, folder.id === 'root-notes' ? null : folder.id);
+      return;
+    }
+
+    if (payload.id !== folder.id) {
+      onMoveFolder(payload.id, folder.id === 'root-notes' ? null : folder.id);
+    }
+  };
+
+  const handleNoteDragStart = (event: React.DragEvent<HTMLDivElement>, noteId: string) => {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData(TREE_DRAG_DATA_TYPE, JSON.stringify({ type: 'note', id: noteId }));
+  };
+
   return (
     <div className="space-y-1">
       <div
         className={`w-full flex items-center gap-1 font-medium text-left p-1 rounded-lg transition-all group ${isFolderActive ? 'bg-ns-green-surface/55 ring-1 ring-ns-primary/20 shadow-sm shadow-ns-primary/5' : 'hover:bg-ns-surface-hover/70'
           }`}
         style={{ paddingLeft: `${level * 8 + 4}px` }}
+        draggable={!isEditing && folder.id !== 'root-notes'}
+        onDragStart={handleFolderDragStart}
+        onDragOver={(event) => {
+          if (readTreeDragPayload(event)) {
+            event.preventDefault();
+          }
+        }}
+        onDrop={handleDropOnFolder}
       >
         <button
           onClick={() => onToggleFolder(folder.id)}
@@ -149,10 +215,18 @@ const FolderItem: React.FC<FolderItemProps> = ({
               onUpdateFolderName={onUpdateFolderName}
               onDeleteNote={onDeleteNote}
               onDeleteFolder={onDeleteFolder}
+              onMoveNote={onMoveNote}
+              onMoveFolder={onMoveFolder}
             />
           ))}
           {folder.notes.map(note => (
-            <div key={note.id} className="group flex items-center relative" style={{ paddingLeft: `${(level + 1) * 8 + 16}px` }}>
+            <div
+              key={note.id}
+              className="group flex items-center relative"
+              style={{ paddingLeft: `${(level + 1) * 8 + 16}px` }}
+              draggable
+              onDragStart={(event) => handleNoteDragStart(event, note.id)}
+            >
               <button
                 onClick={() => onSelectNote(note.id)}
                 className={`w-full flex items-center gap-2 p-1.5 rounded-lg transition-all text-left pr-8 ${activeNoteId === note.id
@@ -197,6 +271,9 @@ interface SidebarProps {
   onUpdateFolderName: (id: string, name: string) => void;
   onDeleteNote: (id: string, name: string) => void;
   onDeleteFolder: (id: string, name: string) => void;
+  onSelectRoot: () => void;
+  onMoveNote: (noteId: string, targetFolderId: string | null) => void;
+  onMoveFolder: (folderId: string, targetParentId: string | null) => void;
   onRecordVoiceNote: () => void;
   onUploadPdf?: () => void;
   onOpenSettings: () => void;
@@ -208,7 +285,29 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
-  folders, activeNoteId, activeFolderId, editingFolderId, onClearEditingFolder, onSelectNote, onToggleFolder, onCreateNote, onCreateFolder, onUpdateFolderName, onDeleteNote, onDeleteFolder, onRecordVoiceNote, onUploadPdf, onOpenSettings, onOpenSearch, onSearch, onCollapse, width, mobileFullScreen = false
+  folders,
+  activeNoteId,
+  activeFolderId,
+  editingFolderId,
+  onClearEditingFolder,
+  onSelectNote,
+  onToggleFolder,
+  onCreateNote,
+  onCreateFolder,
+  onUpdateFolderName,
+  onDeleteNote,
+  onDeleteFolder,
+  onSelectRoot,
+  onMoveNote,
+  onMoveFolder,
+  onRecordVoiceNote,
+  onUploadPdf,
+  onOpenSettings,
+  onOpenSearch,
+  onSearch,
+  onCollapse,
+  width,
+  mobileFullScreen = false
 }) => {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [avatarSeed, setAvatarSeed] = useState(() => localStorage.getItem('avatarSeed') || 'Felix');
@@ -259,6 +358,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
   const handleSearch = onOpenSearch ?? onSearch;
+
+  const handleTreeClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (event.target === event.currentTarget) {
+      onSelectRoot();
+    }
+  };
+
+  const handleDropOnRoot = (event: React.DragEvent<HTMLDivElement>) => {
+    const payload = readTreeDragPayload(event);
+    if (!payload) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (payload.type === 'note') {
+      onMoveNote(payload.id, null);
+      return;
+    }
+
+    onMoveFolder(payload.id, null);
+  };
 
   return (
     <aside
@@ -332,7 +452,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* File Tree */}
-      <div className="flex-1 p-2 space-y-1 overflow-y-auto overflow-x-hidden text-sm">
+      <div
+        className="flex-1 p-2 space-y-1 overflow-y-auto overflow-x-hidden text-sm"
+        onClick={handleTreeClick}
+        onDragOver={(event) => {
+          if (readTreeDragPayload(event)) {
+            event.preventDefault();
+          }
+        }}
+        onDrop={handleDropOnRoot}
+      >
         {folders.map(folder => (
           <FolderItem
             key={folder.id}
@@ -347,6 +476,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onUpdateFolderName={onUpdateFolderName}
             onDeleteNote={onDeleteNote}
             onDeleteFolder={onDeleteFolder}
+            onMoveNote={onMoveNote}
+            onMoveFolder={onMoveFolder}
           />
         ))}
       </div>

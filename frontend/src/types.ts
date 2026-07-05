@@ -11,6 +11,7 @@ export interface Note {
   folderId?: string;
   fileUrl?: string;
   fileType?: string;
+  durationSeconds?: number;
   vectorSyncStatus?: string;
   vectorSyncError?: string;
   vectorSyncedAtUtc?: string;

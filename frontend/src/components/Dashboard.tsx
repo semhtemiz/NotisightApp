@@ -4,7 +4,22 @@ import { EmptyState } from './EmptyState';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 import { Bot, FolderOpen, Loader2, FileText, X, PanelLeft, PanelRight, Headphones, BookOpen } from 'lucide-react';
 import type { Folder, Note } from '../types';
-import { findNote, findFolder, findNotePath, toggleFolderRecursively, addNoteToFolder, addFolderToParent, updateNoteInFolder, updateFolderName, deleteNoteFromFolder, deleteFolder, getAllNotes } from '../utils/folderUtils';
+import {
+  findNote,
+  findFolder,
+  findNotePath,
+  toggleFolderRecursively,
+  addNoteToFolder,
+  addFolderToParent,
+  updateNoteInFolder,
+  updateFolderName,
+  deleteNoteFromFolder,
+  deleteFolder,
+  getAllNotes,
+  isFolderDescendant,
+  moveFolderInFolderTree,
+  moveNoteInFolderTree
+} from '../utils/folderUtils';
 import { apiClient } from '../utils/apiClient';
 import { buildApiUrl } from '../utils/apiConfig';
 
@@ -99,6 +114,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenSettings }) => {
             folderId: n.folderId,
             fileUrl: n.fileUrl ? buildApiUrl(`/notes/${n.id}/file`) : undefined,
             fileType: n.fileType,
+            durationSeconds: n.durationSeconds,
             vectorSyncStatus: n.vectorSyncStatus,
             vectorSyncError: n.vectorSyncError,
             vectorSyncedAtUtc: n.vectorSyncedAtUtc
@@ -158,6 +174,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenSettings }) => {
     if (folderId !== ROOT_NOTES_ID) {
       localStorage.setItem(LAST_USED_FOLDER_KEY, folderId);
     }
+  };
+
+  const handleSelectRoot = () => {
+    setActiveFolderId(null);
+    localStorage.removeItem(LAST_USED_FOLDER_KEY);
   };
 
   const handleSelectNote = (noteId: string) => {
@@ -432,7 +453,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenSettings }) => {
         const response = await apiClient.put(`/notes/${id}`, {
           title: updates.title !== undefined ? updates.title : currentNote.title,
           content: updates.content !== undefined ? updates.content : currentNote.content,
-          folderId: currentNote.folderId,
+          folderId: updates.folderId !== undefined ? updates.folderId : currentNote.folderId,
           tagIds: currentNote.tagIds ?? []
         });
         setFolders(prev => updateNoteInFolder(prev, id, {
@@ -458,6 +479,78 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenSettings }) => {
     try {
       await apiClient.put(`/folders/${id}`, { name, parentFolderId: currentFolder?.parentFolderId ?? null });
     } catch(err) { console.error('Klasör güncellenirken hata oluştu:', err); }
+  };
+
+  const handleMoveNote = async (noteId: string, targetFolderId: string | null) => {
+    const currentNote = findNote(folders, noteId);
+    if (!currentNote) return;
+
+    const normalizedTargetId = targetFolderId === ROOT_NOTES_ID ? null : targetFolderId;
+    if ((currentNote.folderId ?? null) === normalizedTargetId) {
+      return;
+    }
+
+    const previousFolders = folders;
+    const rootFolderName = localStorage.getItem(ROOT_NOTES_NAME_KEY) || DEFAULT_ROOT_NOTES_NAME;
+
+    setFolders(prev => moveNoteInFolderTree(prev, noteId, normalizedTargetId, ROOT_NOTES_ID, rootFolderName).folders);
+    if (activeNoteId === noteId) {
+      setActiveFolderId(normalizedTargetId ?? ROOT_NOTES_ID);
+    }
+    if (normalizedTargetId) {
+      rememberFolder(normalizedTargetId);
+    }
+
+    try {
+      const response = await apiClient.put(`/notes/${noteId}`, {
+        title: currentNote.title || 'İsimsiz',
+        content: currentNote.content || '',
+        folderId: normalizedTargetId,
+        tagIds: currentNote.tagIds ?? []
+      });
+
+      setFolders(prev => updateNoteInFolder(prev, noteId, {
+        folderId: response.folderId ?? undefined,
+        durationSeconds: response.durationSeconds,
+        vectorSyncStatus: response.vectorSyncStatus,
+        vectorSyncError: response.vectorSyncError,
+        vectorSyncedAtUtc: response.vectorSyncedAtUtc
+      }));
+    } catch (err) {
+      console.error('Not taşınırken hata oluştu:', err);
+      setFolders(previousFolders);
+    }
+  };
+
+  const handleMoveFolder = async (folderId: string, targetParentId: string | null) => {
+    if (folderId === ROOT_NOTES_ID) return;
+
+    const currentFolder = findFolder(folders, folderId);
+    if (!currentFolder) return;
+
+    const normalizedParentId = targetParentId === ROOT_NOTES_ID ? null : targetParentId;
+    if ((currentFolder.parentFolderId ?? null) === normalizedParentId) {
+      return;
+    }
+
+    if (normalizedParentId && (normalizedParentId === folderId || isFolderDescendant(folders, folderId, normalizedParentId))) {
+      return;
+    }
+
+    const previousFolders = folders;
+    setFolders(prev => moveFolderInFolderTree(prev, folderId, normalizedParentId, ROOT_NOTES_ID).folders);
+    setActiveFolderId(folderId);
+    rememberFolder(folderId);
+
+    try {
+      await apiClient.put(`/folders/${folderId}`, {
+        name: currentFolder.name,
+        parentFolderId: normalizedParentId
+      });
+    } catch (err) {
+      console.error('Klasör taşınırken hata oluştu:', err);
+      setFolders(previousFolders);
+    }
   };
   
   const handleDeleteNotePrompt = (id: string, name: string) => {
@@ -555,9 +648,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenSettings }) => {
 
   const renderWorkspaceContent = () => activeNote ? (
     activeNote.fileType === 'pdf' ? (
-      <PdfViewer key={activeNote.id} note={activeNote} folderPathStr={folderPathStr} />
+      <PdfViewer key={activeNote.id} note={activeNote} folderPathStr={folderPathStr} onUpdate={handleUpdateNote} />
     ) : activeNote.fileType === 'audio' ? (
-      <AudioViewer key={activeNote.id} note={activeNote} folderPathStr={folderPathStr} />
+      <AudioViewer key={activeNote.id} note={activeNote} folderPathStr={folderPathStr} onUpdate={handleUpdateNote} />
     ) : (
       <Editor key={activeNote.id} note={activeNote} onUpdate={handleUpdateNote} folderPathStr={folderPathStr} />
     )
@@ -588,6 +681,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenSettings }) => {
               onUpdateFolderName={handleUpdateFolderName}
               onDeleteNote={handleDeleteNotePrompt}
               onDeleteFolder={handleDeleteFolderPrompt}
+              onSelectRoot={handleSelectRoot}
+              onMoveNote={handleMoveNote}
+              onMoveFolder={handleMoveFolder}
               onRecordVoiceNote={handleOpenVoiceRecorder}
               onUploadPdf={handleOpenUploadModal}
               onOpenSettings={onOpenSettings}
@@ -698,6 +794,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenSettings }) => {
               onUpdateFolderName={handleUpdateFolderName}
               onDeleteNote={handleDeleteNotePrompt}
               onDeleteFolder={handleDeleteFolderPrompt}
+              onSelectRoot={handleSelectRoot}
+              onMoveNote={handleMoveNote}
+              onMoveFolder={handleMoveFolder}
               onRecordVoiceNote={handleOpenVoiceRecorder}
               onUploadPdf={handleOpenUploadModal}
               onOpenSettings={onOpenSettings}

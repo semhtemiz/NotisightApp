@@ -129,6 +129,9 @@ namespace Notisight.Api.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<double?>("DurationSeconds")
+                        .HasColumnType("float");
+
                     b.Property<string>("FileType")
                         .HasColumnType("nvarchar(max)");
 

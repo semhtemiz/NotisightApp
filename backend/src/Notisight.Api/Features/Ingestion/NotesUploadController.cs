@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Notisight.Api.Domain.Entities;
@@ -80,6 +81,7 @@ public sealed class NotesUploadController(
                 note.Content.Length,
                 fileUrl,
                 "pdf",
+                null,
                 note.VectorSyncStatus,
                 note.VectorSyncError,
                 note.VectorSyncedAtUtc));
@@ -91,6 +93,7 @@ public sealed class NotesUploadController(
     public async Task<ActionResult<UploadedNoteResponse>> UploadAudio(
         IFormFile file,
         [FromForm] Guid? folderId,
+        [FromForm] string? durationSeconds,
         CancellationToken cancellationToken)
     {
         if (file.Length == 0)
@@ -129,6 +132,7 @@ public sealed class NotesUploadController(
             Content = transcript,
             FileUrl = fileUrl,
             FileType = "audio",
+            DurationSeconds = NormalizeDurationSeconds(durationSeconds),
             VectorSyncStatus = VectorSyncStatus.Pending
         };
 
@@ -145,6 +149,7 @@ public sealed class NotesUploadController(
                 note.Content.Length,
                 fileUrl,
                 "audio",
+                note.DurationSeconds,
                 note.VectorSyncStatus,
                 note.VectorSyncError,
                 note.VectorSyncedAtUtc));
@@ -219,6 +224,29 @@ public sealed class NotesUploadController(
         {
             throw new KeyNotFoundException("Folder was not found.");
         }
+    }
+
+    private static double? NormalizeDurationSeconds(string? durationSeconds)
+    {
+        if (string.IsNullOrWhiteSpace(durationSeconds))
+        {
+            return null;
+        }
+
+        if (!double.TryParse(durationSeconds, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) &&
+            !double.TryParse(durationSeconds, NumberStyles.Float, CultureInfo.CurrentCulture, out parsed))
+        {
+            return null;
+        }
+
+        if (double.IsNaN(parsed) ||
+            double.IsInfinity(parsed) ||
+            parsed <= 0)
+        {
+            return null;
+        }
+
+        return Math.Round(parsed, 3);
     }
 
     private async Task<string> TryTranscribeAudioAsync(
