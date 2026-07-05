@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
+using Notisight.Api.Infrastructure.Errors;
 using Notisight.Api.Infrastructure.Http;
 using Notisight.Api.Options;
 
@@ -56,7 +57,18 @@ public sealed class GeminiEmbeddingService(
             logger,
             "Gemini embedding",
             cancellationToken);
-        response.EnsureSuccessStatusCode();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await ReadSafeBodyAsync(response, cancellationToken);
+            logger.LogWarning(
+                "Gemini embedding failed. StatusCode: {StatusCode}. Model: {Model}. Body: {Body}",
+                (int)response.StatusCode,
+                _geminiOptions.EmbeddingModel,
+                body);
+
+            throw BuildEmbeddingException(response);
+        }
 
         var payload = await response.Content.ReadFromJsonAsync<GeminiEmbeddingResponse>(
             cancellationToken: cancellationToken);
@@ -103,6 +115,57 @@ public sealed class GeminiEmbeddingService(
         return normalized.StartsWith("models/", StringComparison.OrdinalIgnoreCase)
             ? normalized["models/".Length..]
             : normalized;
+    }
+
+    private static ApiHttpException BuildEmbeddingException(HttpResponseMessage response)
+    {
+        return response.StatusCode switch
+        {
+            System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden =>
+                new ApiHttpException(
+                    StatusCodes.Status502BadGateway,
+                    "Gemini embedding API anahtari kabul edilmedi. Azure Gemini API anahtarini kontrol edin."),
+
+            System.Net.HttpStatusCode.NotFound =>
+                new ApiHttpException(
+                    StatusCodes.Status502BadGateway,
+                    "Gemini embedding modeli bulunamadi. Azure Gemini__EmbeddingModel ayarini gemini-embedding-001 yapin."),
+
+            System.Net.HttpStatusCode.TooManyRequests =>
+                new ApiHttpException(
+                    StatusCodes.Status429TooManyRequests,
+                    "Gemini embedding kullanimi limite takildi. Biraz bekleyip tekrar deneyin veya Google AI Studio kotasini kontrol edin."),
+
+            System.Net.HttpStatusCode.BadRequest =>
+                new ApiHttpException(
+                    StatusCodes.Status502BadGateway,
+                    "Gemini embedding istegi gecersiz bulundu. Embedding modeli ve vektor boyutu ayarlarini kontrol edin."),
+
+            _ =>
+                new ApiHttpException(
+                    StatusCodes.Status502BadGateway,
+                    $"Gemini embedding servisi yanit veremedi. HTTP {(int)response.StatusCode} ({response.ReasonPhrase}).")
+        };
+    }
+
+    private static async Task<string> ReadSafeBodyAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                return "<empty>";
+            }
+
+            return body.Length <= 1000 ? body : body[..1000];
+        }
+        catch
+        {
+            return "<unreadable>";
+        }
     }
 
     private sealed record GeminiEmbeddingRequest(

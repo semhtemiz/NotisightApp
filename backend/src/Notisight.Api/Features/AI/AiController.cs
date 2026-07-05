@@ -7,6 +7,7 @@ using Notisight.Api.Features.AI.Contracts;
 using Notisight.Api.Features.AI.Services;
 using Notisight.Api.Features.Settings.Enums;
 using Notisight.Api.Infrastructure.Auth;
+using Notisight.Api.Infrastructure.Errors;
 
 namespace Notisight.Api.Features.AI;
 
@@ -21,7 +22,8 @@ public sealed class AiController(
     IToneProfileService toneProfileService,
     Notisight.Api.Infrastructure.Persistence.ApplicationDbContext dbContext,
     Notisight.Api.Features.Settings.Services.ISecurityService securityService,
-    IChatConfigurationProvider chatConfigProvider) : ControllerBase
+    IChatConfigurationProvider chatConfigProvider,
+    ILogger<AiController> logger) : ControllerBase
 {
     [HttpPost("ask")]
     public async Task Ask([FromBody] AskRequest request, CancellationToken cancellationToken)
@@ -92,7 +94,8 @@ public sealed class AiController(
         }
         catch (Exception ex)
         {
-            await WriteEventAsync("error", new { message = "Sunucu Hatası: " + ex.Message }, cancellationToken);
+            logger.LogError(ex, "AI ask stream failed.");
+            await WriteEventAsync("error", new { message = BuildStreamErrorMessage(ex) }, cancellationToken);
             await Response.Body.FlushAsync(cancellationToken);
         }
     }
@@ -101,6 +104,17 @@ public sealed class AiController(
     {
         await Response.WriteAsync($"event: {eventName}\n", cancellationToken);
         await Response.WriteAsync($"data: {JsonSerializer.Serialize(payload)}\n\n", cancellationToken);
+    }
+
+    private static string BuildStreamErrorMessage(Exception exception)
+    {
+        return exception switch
+        {
+            ApiHttpException apiHttpException => apiHttpException.Message,
+            HttpRequestException => "AI veya arama servisine ulasilamadi. Lutfen biraz sonra tekrar deneyin.",
+            OperationCanceledException => "Istek iptal edildi.",
+            _ => "Istek islenirken beklenmeyen bir hata olustu. Lutfen tekrar deneyin."
+        };
     }
 
     [HttpPost("generate-title")]
