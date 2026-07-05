@@ -12,6 +12,7 @@ export interface Note {
   fileUrl?: string;
   fileType?: string;
   durationSeconds?: number;
+  updatedAtUtc?: string;
   vectorSyncStatus?: string;
   vectorSyncError?: string;
   vectorSyncedAtUtc?: string;
