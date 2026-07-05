@@ -1,53 +1,101 @@
-# Notisight
+# Notisight: Multi-Modal RAG Tabanlı Kişisel AI Not Asistanı
 
-Notisight; metin, PDF ve ses formatindaki notlari tek bir ortamda tutan, bu notlar uzerinde yapay zeka destekli anlamsal arama ve soru-cevap deneyimi sunan kisisel not asistanidir.
+Notisight; notlarınızı, PDF belgelerinizi ve ses kayıtlarınızı tek bir çalışma alanında toplar. İçerikleri işler, anlamlandırır ve kendi verileriniz üzerinden kaynaklı cevaplar verebilen yapay zeka deneyimi sunar.
 
-Uygulama multimodal Retrieval-Augmented Generation (RAG) mimarisi uzerine kurulacaktir. Kullanici notlari once veritabaninda saklanir, ardindan metin parcalarina ayrilip embedding uretilerek Qdrant uzerinde aranabilir hale getirilir. Soru-cevap akisinda ilgili kaynak parcalar bulunur ve LLM cevabi yalnizca bu baglama dayanarak uretir.
+🔗 **Live Demo:** [https://notisight.dev](https://notisight.dev)
 
-## Mimari Kararlar
+## Öne Çıkanlar
 
-- Monorepo yapisi kullanilacaktir.
-- Gelistirme akisi iki branch ile yurutulecektir:
-  - `main`: Onaylanmis production adayi surumler.
-  - `dev`: Tum aktif gelistirmeler ve testler.
-- Hassas bilgiler repoya alinmayacaktir. Local ayarlar `appsettings.Development.json` ve `.env.development` dosyalarinda tutulacak, ornek dosyalar ise repoda yer alacaktir.
-- Her faz sonunda teknik testler, UI dogrulamasi ve kisa walkthrough belgesi tamamlanmadan sonraki faza gecilmeyecektir.
+- Zengin metin editörü ile not oluşturma
+- PDF ve ses dosyası yükleme
+- Ses kayıtlarını otomatik metne dönüştürme
+- Notlar üzerinden kaynaklı AI cevapları
+- Serbest AI sohbet modu
+- Klasör bazlı bilgi yönetimi
+- Çoklu AI sağlayıcı yapılandırması
+- Semantik arama ve RAG tabanlı yanıt üretimi
 
-## Teknoloji Yigini
+## AI ve RAG Mimarisi
 
-- Backend: .NET 8 ASP.NET Core Web API, Entity Framework Core 8
-- LLM / Embedding: Gemini 2.5 Flash ve Gemini embedding modeli
-- Veritabani: Microsoft SQL Server
-- Not ve cikarilmis dosya metni: Microsoft SQL Server
-- Vektor Veritabani: Qdrant Cloud
-- Frontend: Vite, React, TypeScript, Tailwind CSS
-- PDF Isleme: UglyToad.PdfPig
-- Auth: JWT access token, refresh token rotation, BCrypt
+Notisight klasik bir not uygulamasından farklı olarak içerikleri sadece saklamaz; onları aranabilir, anlamlandırılabilir ve yapay zeka ile konuşulabilir hale getirir.
 
-## Hedef Klasor Yapisi
+Uygulama **Retrieval-Augmented Generation** yaklaşımıyla çalışır:
+
+1. Kullanıcı not, PDF veya ses içeriği ekler.
+2. PDF metni çıkarılır, ses dosyası transkribe edilir.
+3. İçerik anlamlı parçalara ayrılır.
+4. Her parça için embedding üretilir.
+5. Embedding verileri Qdrant üzerinde indekslenir.
+6. Kullanıcı soru sorduğunda ilgili parçalar semantik olarak bulunur.
+7. AI modeli cevabı bu bağlama dayanarak üretir.
+8. Cevapta ilgili kaynak notlar referans olarak gösterilir.
+
+Bu yapı sayesinde Notisight, kullanıcının kendi bilgi havuzu üzerinde çalışan kişisel bir AI asistanına dönüşür.
 
 ```text
-notisight/
-  backend/
-    src/
-    tests/
-  frontend/
-    src/
-    components/
-    lib/
-  docs/
-    checklists/
-    walkthroughs/
-  .gitignore
-  README.md
+Note / PDF / Audio
+        ↓
+Text Extraction / Transcription
+        ↓
+Chunking
+        ↓
+Embedding
+        ↓
+Qdrant Vector Search
+        ↓
+Context Retrieval
+        ↓
+LLM Answer with Sources
 ```
 
-## Dokumantasyon
+## Teknoloji Stack
 
-- [Uygulama Plani](docs/implementation-plan.md)
-- [AI/RAG Local Secret Kurulumu](docs/setup-ai-rag-secrets.md)
-- [Faz 1 Checklist](docs/checklists/phase-1-infrastructure.md)
-- [Faz 2 Checklist](docs/checklists/phase-2-backend-core.md)
-- [Faz 3 Checklist](docs/checklists/phase-3-ai-rag.md)
-- [Faz 4 Checklist](docs/checklists/phase-4-frontend.md)
-- [Faz 5 Checklist](docs/checklists/phase-5-deploy-test-demo.md)
+| Katman | Teknolojiler |
+|---|---|
+| Frontend | React, Vite, TypeScript, Tailwind CSS, TipTap |
+| Backend | .NET 8, ASP.NET Core Web API, EF Core |
+| Database | SQL Server |
+| Vector Database | Qdrant |
+| Object Storage | Cloudflare R2 |
+| Speech-to-Text | Deepgram |
+| AI | Gemini, OpenAI-compatible providers |
+| Deploy | Vercel, Azure App Service, GitHub Actions |
+
+## Kurulum
+
+Backend:
+
+```bash
+cd backend/src/Notisight.Api
+dotnet run
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Gerekli temel ortam ayarları:
+
+```text
+VITE_API_URL
+ConnectionStrings__DefaultConnection
+Jwt__SigningKey
+Gemini__ApiKey
+Qdrant__Url
+Qdrant__ApiKey
+CloudflareR2__*
+Deepgram__ApiKey
+```
+
+## Deploy
+
+Frontend Vercel üzerinde, backend Azure App Service üzerinde çalışır.  
+`main` branch’e yapılan güncellemeler GitHub Actions ile backend deploy sürecini tetikler.
+
+## Durum
+
+Notisight aktif olarak geliştirilmektedir. Amaç; kişisel bilgi yönetimi, AI destekli arama, kaynaklı cevap üretimi ve çoklu veri formatı desteğini tek bir modern çalışma alanında birleştirmektir.
