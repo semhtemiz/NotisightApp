@@ -2,8 +2,6 @@
 
 Notisight; notlarınızı, PDF belgelerinizi ve ses kayıtlarınızı tek bir çalışma alanında toplar. İçerikleri işler, anlamlandırır ve kendi verileriniz üzerinden kaynaklı cevaplar verebilen yapay zeka deneyimi sunar.
 
-🔗 **Demo URL:** [https://example.com](https://example.com)
-
 ## Öne Çıkanlar
 
 - Zengin metin editörü ile not oluşturma
