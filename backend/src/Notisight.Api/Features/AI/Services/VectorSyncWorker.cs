@@ -111,7 +111,8 @@ public sealed class VectorSyncWorker(
     {
         using var scope = scopeFactory.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        if (string.IsNullOrWhiteSpace(dbContext.Database.GetConnectionString()))
+        var connectionString = dbContext.Database.GetConnectionString();
+        if (string.IsNullOrWhiteSpace(connectionString) || IsPlaceholderConnectionString(connectionString))
         {
             return;
         }
@@ -137,4 +138,8 @@ public sealed class VectorSyncWorker(
                 reason);
         }
     }
+
+    private static bool IsPlaceholderConnectionString(string connectionString) =>
+        connectionString.Equals("sql_server_connection_string", StringComparison.OrdinalIgnoreCase) ||
+        connectionString.Contains("connection_string", StringComparison.OrdinalIgnoreCase);
 }

@@ -18,7 +18,7 @@ jobs:
     name: backend
     runs-on: ubuntu-latest
     env:
-      Jwt__SigningKey: ci-only-notisight-test-signing-key-0000000000000000
+      Jwt__SigningKey: ci_jwt_signing_key
 
     steps:
       - name: Checkout
@@ -42,7 +42,7 @@ jobs:
       run:
         working-directory: frontend
     env:
-      VITE_API_URL: https://api.notisight.dev
+      VITE_API_URL: ${{ vars.VITE_API_URL || 'https://api.example.com' }}
 
     steps:
       - name: Checkout
@@ -75,13 +75,24 @@ jobs:
       contents: read
       id-token: write
     env:
-      AZURE_WEBAPP_NAME: notisight-api
-      AZURE_RESOURCE_GROUP: NotisightApp
+      AZURE_WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME }}
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
       AZURE_WEBAPP_PACKAGE_PATH: backend/src/Notisight.Api/publish
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Validate deploy configuration
+        run: |
+          if [ -z "${AZURE_WEBAPP_NAME}" ]; then
+            echo "AZURE_WEBAPP_NAME repository variable is required."
+            exit 1
+          fi
+          if [ -z "${AZURE_RESOURCE_GROUP}" ]; then
+            echo "AZURE_RESOURCE_GROUP repository variable is required."
+            exit 1
+          fi
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
