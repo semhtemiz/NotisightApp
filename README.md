@@ -2,7 +2,7 @@
 
 Notisight; notlarınızı, PDF belgelerinizi ve ses kayıtlarınızı tek bir çalışma alanında toplar. İçerikleri işler, anlamlandırır ve kendi verileriniz üzerinden kaynaklı cevaplar verebilen yapay zeka deneyimi sunar.
 
-🔗 **Live Demo:** [https://notisight.dev](https://notisight.dev)
+🔗 **Demo URL:** [https://example.com](https://example.com)
 
 ## Öne Çıkanlar
 
@@ -81,14 +81,15 @@ npm run dev
 Gerekli temel ortam ayarları:
 
 ```text
-VITE_API_URL
-ConnectionStrings__DefaultConnection
-Jwt__SigningKey
-Gemini__ApiKey
-Qdrant__Url
-Qdrant__ApiKey
-CloudflareR2__*
-Deepgram__ApiKey
+VITE_API_URL=https://api.example.com
+ConnectionStrings__DefaultConnection=sql_server_connection_string
+Jwt__SigningKey=jwt_signing_key
+Gemini__ApiKey=gemini_api_key
+Qdrant__Url=qdrant_url
+Qdrant__ApiKey=qdrant_api_key
+CloudflareR2__AccessKey=cloudflare_r2_access_key
+CloudflareR2__SecretKey=cloudflare_r2_secret_key
+Deepgram__ApiKey=deepgram_api_key
 ```
 
 ## Deploy
