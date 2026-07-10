@@ -6,8 +6,25 @@ namespace Notisight.Api.Infrastructure.Errors;
 
 public sealed class ApiExceptionHandler(
     IProblemDetailsService problemDetailsService,
-    ILogger<ApiExceptionHandler> logger) : IExceptionHandler
+    ILogger<ApiExceptionHandler> logger,
+    IHostEnvironment environment) : IExceptionHandler
 {
+    private static readonly HashSet<string> SafeBadRequestMessages = new(StringComparer.Ordinal)
+    {
+        "A folder cannot be its own parent.",
+        "A folder cannot be moved under one of its descendants.",
+        "Uploaded PDF is empty.",
+        "Only PDF files are supported.",
+        "Uploaded audio file is empty.",
+        "Only WAV, WEBM, M4A, and MP3 audio files are supported.",
+        "Audio file is too large for transcription. Use a file smaller than 25 MB.",
+        "Deepgram did not return an audio transcript.",
+        "Uploaded image is empty.",
+        "Only JPG, PNG, GIF, and WEBP images are supported.",
+        "Bu e-posta adresi zaten kullanılıyor.",
+        "Bu kullanıcı adı zaten kullanılıyor."
+    };
+
     public async ValueTask<bool> TryHandleAsync(
         HttpContext httpContext,
         Exception exception,
@@ -20,7 +37,9 @@ public sealed class ApiExceptionHandler(
             ApiHttpException apiHttpException => apiHttpException.StatusCode,
             UnauthorizedAccessException => StatusCodes.Status401Unauthorized,
             KeyNotFoundException => StatusCodes.Status404NotFound,
-            InvalidOperationException => StatusCodes.Status400BadRequest,
+            InvalidOperationException invalidOperationException
+                when SafeBadRequestMessages.Contains(invalidOperationException.Message) =>
+                    StatusCodes.Status400BadRequest,
             DbUpdateException => StatusCodes.Status409Conflict,
             _ => StatusCodes.Status500InternalServerError
         };
@@ -34,7 +53,7 @@ public sealed class ApiExceptionHandler(
             {
                 Status = statusCode,
                 Title = GetTitle(statusCode),
-                Detail = exception.Message
+                Detail = GetDetail(exception, statusCode)
             },
             Exception = exception
         });
@@ -51,4 +70,33 @@ public sealed class ApiExceptionHandler(
         StatusCodes.Status503ServiceUnavailable => "Service Unavailable",
         _ => "Server Error"
     };
+
+    private string GetDetail(Exception exception, int statusCode)
+    {
+        if (environment.IsDevelopment())
+        {
+            return exception.Message;
+        }
+
+        if (exception is ApiHttpException)
+        {
+            return exception.Message;
+        }
+
+        return statusCode switch
+        {
+            StatusCodes.Status400BadRequest when SafeBadRequestMessages.Contains(exception.Message) =>
+                exception.Message,
+            StatusCodes.Status401Unauthorized =>
+                "Oturum doğrulanamadı. Lütfen tekrar giriş yapın.",
+            StatusCodes.Status404NotFound =>
+                "İstenen kaynak bulunamadı.",
+            StatusCodes.Status409Conflict =>
+                "İstek mevcut kayıtlarla çakıştı.",
+            StatusCodes.Status429TooManyRequests =>
+                "Çok fazla istek gönderildi. Lütfen biraz sonra tekrar deneyin.",
+            _ =>
+                "Beklenmeyen bir hata oluştu. Lütfen daha sonra tekrar deneyin."
+        };
+    }
 }

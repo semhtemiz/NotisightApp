@@ -160,6 +160,7 @@ public static class ServiceCollectionExtensions
             .Get<string[]>()?
             .Where(origin => !string.IsNullOrWhiteSpace(origin))
             .Select(origin => origin.Trim().TrimEnd('/'))
+            .Where(origin => !IsPlaceholderCorsOrigin(origin))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray() ?? [];
 
@@ -171,6 +172,7 @@ public static class ServiceCollectionExtensions
                 : inlineOrigins
                     .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                     .Select(origin => origin.TrimEnd('/'))
+                    .Where(origin => !IsPlaceholderCorsOrigin(origin))
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToArray();
         }
@@ -181,6 +183,17 @@ public static class ServiceCollectionExtensions
         }
 
         return origins;
+    }
+
+    private static bool IsPlaceholderCorsOrigin(string origin)
+    {
+        if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        return uri.Host.Equals("example.com", StringComparison.OrdinalIgnoreCase) ||
+            uri.Host.EndsWith(".example.com", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsDevelopmentCorsOrigin(string origin)
