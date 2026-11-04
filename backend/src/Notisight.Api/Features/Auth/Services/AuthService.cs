@@ -2,6 +2,7 @@ using BCrypt.Net;
 using Microsoft.EntityFrameworkCore;
 using Notisight.Api.Domain.Entities;
 using Notisight.Api.Features.Auth.Contracts;
+using Notisight.Api.Infrastructure.Auth;
 using Notisight.Api.Infrastructure.Persistence;
 
 namespace Notisight.Api.Features.Auth.Services;
@@ -10,6 +11,13 @@ public sealed class AuthService(
     ApplicationDbContext dbContext,
     IJwtTokenService jwtTokenService) : IAuthService
 {
+    private const string InvalidCredentialsMessage = "Giriş bilgileri geçersiz.";
+
+    // Keeps the cost of an unknown-account login equal to a real one, so response time
+    // cannot be used to enumerate registered users.
+    private static readonly Lazy<string> DummyPasswordHash =
+        new(() => BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()));
+
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken)
     {
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
@@ -57,12 +65,13 @@ public sealed class AuthService(
 
         if (user is null)
         {
-            throw new UnauthorizedAccessException("E-posta veya kullanıcı adı bulunamadı.");
+            _ = BCrypt.Net.BCrypt.Verify(request.Password, DummyPasswordHash.Value);
+            throw new UnauthorizedAccessException(InvalidCredentialsMessage);
         }
 
         if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
         {
-            throw new UnauthorizedAccessException("Şifre hatalı.");
+            throw new UnauthorizedAccessException(InvalidCredentialsMessage);
         }
 
         var tokenSet = jwtTokenService.CreateTokenSet(user);
@@ -75,12 +84,26 @@ public sealed class AuthService(
 
     public async Task<AuthResponse> RefreshAsync(RefreshTokenRequest request, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(request.RefreshToken))
+        {
+            throw new UnauthorizedAccessException("Refresh token is invalid or expired.");
+        }
+
+        var tokenHash = RefreshTokenHasher.Hash(request.RefreshToken);
         var currentToken = await dbContext.RefreshTokens
             .Include(x => x.User)
-            .SingleOrDefaultAsync(x => x.Token == request.RefreshToken, cancellationToken);
+            .SingleOrDefaultAsync(x => x.Token == tokenHash, cancellationToken);
 
-        if (currentToken is null || !currentToken.IsActive)
+        if (currentToken is null)
         {
+            throw new UnauthorizedAccessException("Refresh token is invalid or expired.");
+        }
+
+        if (!currentToken.IsActive)
+        {
+            // A revoked or already-rotated token was presented again, which means an earlier
+            // copy leaked. Sign the whole token family out.
+            await RevokeSessionsAsync(currentToken.UserId, cancellationToken);
             throw new UnauthorizedAccessException("Refresh token is invalid or expired.");
         }
 
@@ -96,16 +119,21 @@ public sealed class AuthService(
 
     public async Task LogoutAsync(LogoutRequest request, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(request.RefreshToken))
+        {
+            return;
+        }
+
+        var tokenHash = RefreshTokenHasher.Hash(request.RefreshToken);
         var refreshToken = await dbContext.RefreshTokens
-            .SingleOrDefaultAsync(x => x.Token == request.RefreshToken, cancellationToken);
+            .SingleOrDefaultAsync(x => x.Token == tokenHash, cancellationToken);
 
         if (refreshToken is null)
         {
             return;
         }
 
-        refreshToken.RevokedAtUtc = DateTimeOffset.UtcNow;
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await RevokeSessionsAsync(refreshToken.UserId, cancellationToken);
     }
 
     public async Task<AuthUserResponse> GetCurrentUserAsync(Guid userId, CancellationToken cancellationToken)
@@ -177,6 +205,22 @@ public sealed class AuthService(
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
         user.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
+        // A stolen refresh token must not outlive the password that was changed to evict it.
+        await RevokeSessionsAsync(userId, cancellationToken);
+    }
+
+    private async Task RevokeSessionsAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var activeTokens = await dbContext.RefreshTokens
+            .Where(x => x.UserId == userId && x.RevokedAtUtc == null)
+            .ToListAsync(cancellationToken);
+
+        foreach (var token in activeTokens)
+        {
+            token.RevokedAtUtc = now;
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
@@ -185,7 +229,7 @@ public sealed class AuthService(
         return new AuthResponse(
             tokenSet.AccessToken,
             tokenSet.AccessTokenExpiresAtUtc,
-            tokenSet.RefreshToken.Token,
+            tokenSet.RefreshTokenValue,
             tokenSet.RefreshToken.ExpiresAtUtc,
             CreateUserResponse(user));
     }

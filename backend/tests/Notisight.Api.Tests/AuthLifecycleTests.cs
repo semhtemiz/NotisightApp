@@ -61,7 +61,7 @@ public sealed class AuthLifecycleTests : IClassFixture<TestApiFactory>
     }
 
     [Fact]
-    public async Task Login_Accepts_Username_Or_Email_And_Returns_Field_Specific_Errors()
+    public async Task Login_Accepts_Username_Or_Email_And_Returns_Indistinguishable_Failure()
     {
         const string email = "identity@example.com";
         const string username = "identity";
@@ -77,11 +77,58 @@ public sealed class AuthLifecycleTests : IClassFixture<TestApiFactory>
 
         var wrongPasswordResponse = await _client.PostAsJsonAsync("/auth/login", new LoginRequest(email, "Wrong123!"));
         Assert.Equal(HttpStatusCode.Unauthorized, wrongPasswordResponse.StatusCode);
-        Assert.Contains("Şifre hatalı.", await wrongPasswordResponse.Content.ReadAsStringAsync());
+        var wrongPasswordBody = await wrongPasswordResponse.Content.ReadAsStringAsync();
 
         var missingIdentifierResponse = await _client.PostAsJsonAsync("/auth/login", new LoginRequest("missing-user", password));
         Assert.Equal(HttpStatusCode.Unauthorized, missingIdentifierResponse.StatusCode);
-        Assert.Contains("E-posta veya kullanıcı adı bulunamadı.", await missingIdentifierResponse.Content.ReadAsStringAsync());
+        var missingIdentifierBody = await missingIdentifierResponse.Content.ReadAsStringAsync();
+
+        // Both failures must read the same way, otherwise login doubles as an account oracle.
+        Assert.Contains("Giriş bilgileri geçersiz.", wrongPasswordBody);
+        Assert.Contains("Giriş bilgileri geçersiz.", missingIdentifierBody);
+        Assert.DoesNotContain("Şifre hatalı.", wrongPasswordBody);
+        Assert.DoesNotContain("bulunamadı", missingIdentifierBody);
+    }
+
+    [Fact]
+    public async Task ChangePassword_Revokes_Issued_Refresh_Tokens()
+    {
+        const string password = "P@ssw0rd123!";
+        var auth = await _client.RegisterAsync("revoke-on-password-change@example.com", password, "Revoke User");
+        _client.SetBearer(auth.AccessToken);
+
+        var changeResponse = await _client.PutAsJsonAsync(
+            "/auth/password",
+            new ChangePasswordRequest(password, "NewP@ssw0rd456!"));
+        Assert.Equal(HttpStatusCode.NoContent, changeResponse.StatusCode);
+
+        var refreshResponse = await _client.PostAsJsonAsync(
+            "/auth/refresh",
+            new RefreshTokenRequest(auth.RefreshToken));
+        Assert.Equal(HttpStatusCode.Unauthorized, refreshResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Reusing_Rotated_Refresh_Token_Signs_Every_Session_Out()
+    {
+        var auth = await _client.RegisterAsync("token-family@example.com", "P@ssw0rd123!", "Family User");
+
+        var rotatedResponse = await _client.PostAsJsonAsync(
+            "/auth/refresh",
+            new RefreshTokenRequest(auth.RefreshToken));
+        rotatedResponse.EnsureSuccessStatusCode();
+        var rotated = (await rotatedResponse.Content.ReadFromJsonAsync<AuthResponse>())!;
+
+        var replayResponse = await _client.PostAsJsonAsync(
+            "/auth/refresh",
+            new RefreshTokenRequest(auth.RefreshToken));
+        Assert.Equal(HttpStatusCode.Unauthorized, replayResponse.StatusCode);
+
+        // Replay means the original token leaked, so the live session is dropped too.
+        var followUpResponse = await _client.PostAsJsonAsync(
+            "/auth/refresh",
+            new RefreshTokenRequest(rotated.RefreshToken));
+        Assert.Equal(HttpStatusCode.Unauthorized, followUpResponse.StatusCode);
     }
 
     [Fact]

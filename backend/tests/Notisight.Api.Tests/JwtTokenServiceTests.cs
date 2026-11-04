@@ -33,6 +33,8 @@ public sealed class JwtTokenServiceTests
         Assert.NotEmpty(tokenSet.AccessToken);
         Assert.True(tokenSet.AccessTokenExpiresAtUtc > DateTimeOffset.UtcNow);
         Assert.NotEmpty(tokenSet.RefreshToken.Token);
+        Assert.Equal(64, tokenSet.RefreshToken.Token.Length);
+        Assert.NotEqual(tokenSet.RefreshTokenValue, tokenSet.RefreshToken.Token);
         Assert.Equal(user.Id, tokenSet.RefreshToken.UserId);
         Assert.True(tokenSet.RefreshToken.ExpiresAtUtc > DateTimeOffset.UtcNow);
     }

@@ -5,6 +5,7 @@ using System.Text;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Notisight.Api.Domain.Entities;
+using Notisight.Api.Infrastructure.Auth;
 using Notisight.Api.Options;
 
 namespace Notisight.Api.Features.Auth.Services;
@@ -38,11 +39,12 @@ public sealed class JwtTokenService(IOptions<JwtOptions> jwtOptions) : IJwtToken
             expires: accessTokenExpiresAt.UtcDateTime,
             signingCredentials: credentials);
 
+        var refreshTokenValue = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
         var refreshToken = new RefreshToken
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
-            Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
+            Token = RefreshTokenHasher.Hash(refreshTokenValue),
             CreatedAtUtc = now,
             ExpiresAtUtc = now.AddDays(_jwtOptions.RefreshTokenDays)
         };
@@ -50,6 +52,7 @@ public sealed class JwtTokenService(IOptions<JwtOptions> jwtOptions) : IJwtToken
         return new TokenResult(
             new JwtSecurityTokenHandler().WriteToken(token),
             accessTokenExpiresAt,
-            refreshToken);
+            refreshToken,
+            refreshTokenValue);
     }
 }
