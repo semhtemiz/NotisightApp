@@ -32,10 +32,9 @@ const readAudioDurationSeconds = (file: File): Promise<number | undefined> =>
       cleanup();
       resolve(undefined);
     };
-    // The URL is a browser-minted blob: reference to this same File handle, so it carries
-    // neither markup nor a javascript: scheme. srcObject is not used because Safari does
-    // not accept a Blob there.
-    audio.src = objectUrl; // codeql[js/xss-through-dom] ignored: blob: URL minted by the browser for this File
+    // A browser-minted blob: reference to this same File handle: it cannot carry markup or a
+    // javascript: scheme. srcObject is avoided because Safari does not accept a Blob there.
+    audio.src = objectUrl;
   });
 
 export const KnowledgeIngestionModal: React.FC<KnowledgeIngestionModalProps> = ({ isOpen, onClose, onNoteCreated, targetFolderId }) => {
