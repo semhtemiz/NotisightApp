@@ -150,9 +150,9 @@ public static class ServiceCollectionExtensions
         // Redirects are disabled on every outbound client: a validated public base URL could
         // otherwise answer with a 302 straight at a cloud metadata endpoint.
         services.AddHttpClient<IEmbeddingService, GeminiEmbeddingService>()
-            .ConfigureHttpClient(client => client.AllowAutoRedirect = false);
+            .ConfigurePrimaryHttpMessageHandler(NewNoRedirectHandler);
         services.AddHttpClient<ILlmChatService, OpenAiChatService>()
-            .ConfigureHttpClient(client => client.AllowAutoRedirect = false);
+            .ConfigurePrimaryHttpMessageHandler(NewNoRedirectHandler);
         services.AddScoped<IChunkSearchService, ChunkSearchService>();
         services.AddMemoryCache();
         services.AddScoped<IIntentParserService, IntentParserService>();
@@ -163,13 +163,13 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRagAnswerService, RagAnswerService>();
         services.AddScoped<IChatHistoryService, ChatHistoryService>();
         services.AddHttpClient<IQdrantVectorService, QdrantVectorService>()
-            .ConfigureHttpClient(client => client.AllowAutoRedirect = false);
+            .ConfigurePrimaryHttpMessageHandler(NewNoRedirectHandler);
         services.AddScoped<INoteVectorSyncService, NoteVectorSyncService>();
         services.AddSingleton<IVectorSyncQueue, InMemoryVectorSyncQueue>();
         services.AddHostedService<VectorSyncWorker>();
         services.AddScoped<IPdfIngestionService, PdfIngestionService>();
         services.AddHttpClient<IAudioTranscriptionService, AudioTranscriptionService>()
-            .ConfigureHttpClient(client => client.AllowAutoRedirect = false);
+            .ConfigurePrimaryHttpMessageHandler(NewNoRedirectHandler);
         services.AddScoped<IFileStorageService, CloudflareR2StorageService>();
         services.AddSwaggerGen(options =>
         {
@@ -257,6 +257,8 @@ public static class ServiceCollectionExtensions
 
     private static string GetRateLimitPartitionKey(HttpContext httpContext) =>
         httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+    private static HttpClientHandler NewNoRedirectHandler() => new() { AllowAutoRedirect = false };
 
     private static bool IsDevelopmentCorsOrigin(string origin)
     {
