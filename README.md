@@ -81,7 +81,7 @@ Gerekli temel ortam ayarları:
 ```text
 VITE_API_URL=https://api.example.com
 ConnectionStrings__DefaultConnection=sql_server_connection_string
-Jwt__SigningKey=jwt_signing_key
+Jwt__SigningKey=generate_one_see_note_below
 Gemini__ApiKey=gemini_api_key
 Qdrant__Url=qdrant_url
 Qdrant__ApiKey=qdrant_api_key
@@ -89,6 +89,16 @@ CloudflareR2__AccessKey=cloudflare_r2_access_key
 CloudflareR2__SecretKey=cloudflare_r2_secret_key
 Deepgram__ApiKey=deepgram_api_key
 ```
+
+`Jwt__SigningKey` üretim sırasında gerçek bir rastgele anahtar olmalıdır; API, 32 karakterden kısa
+anahtarları ve `jwt_signing_key` gibi örnek değerleri kabul etmez, açılışta hata verir:
+
+```bash
+openssl rand -base64 48
+```
+
+Anahtarı repo’ya veya günlüklere yazmayın; Azure App Service için Configuration settings,
+localhost için user-secrets kullanın.
 
 ## Deploy
 
