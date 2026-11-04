@@ -71,7 +71,9 @@ jobs:
     needs:
       - backend
       - frontend
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Skipped until the Azure target is actually configured, so the job never
+    # reports a failure on a repository that has no hosted environment.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AZURE_WEBAPP_NAME != '' && vars.AZURE_RESOURCE_GROUP != ''
     permissions:
       contents: read
       id-token: write
