@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import DOMPurify from 'dompurify';
 import { Play, Pause, Volume2, VolumeX, Edit2, Check, X } from 'lucide-react';
 import type { Note } from '../types';
 import { apiClient } from '../utils/apiClient';
@@ -20,6 +21,13 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({ note, folderPathStr, o
   const [isLoading, setIsLoading] = useState(true);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [draftTitle, setDraftTitle] = useState(note.title || '');
+
+  // Transcripts are stored as server-built HTML, so they are sanitised before reaching
+  // dangerouslySetInnerHTML; a `<script>` or an `onerror` attribute must never execute.
+  const transcriptHtml = useMemo(
+    () => DOMPurify.sanitize(note.content ?? ''),
+    [note.content]
+  );
 
   useEffect(() => {
     setDraftTitle(note.title || '');
@@ -265,7 +273,7 @@ export const AudioViewer: React.FC<AudioViewerProps> = ({ note, folderPathStr, o
                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ns-primary"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
                  Yapay Zeka Dökümü
                </h3>
-               <div className="prose prose-sm sm:prose-base prose-invert text-ns-text-primary leading-relaxed whitespace-pre-wrap break-words" dangerouslySetInnerHTML={{ __html: note.content }} />
+               <div className="prose prose-sm sm:prose-base prose-invert text-ns-text-primary leading-relaxed whitespace-pre-wrap break-words" dangerouslySetInnerHTML={{ __html: transcriptHtml }} />
            </div>
          )}
       </div>

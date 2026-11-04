@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
+import DOMPurify from 'dompurify';
 import { motion, AnimatePresence } from 'motion/react';
 import { Extension, Node as TiptapNode, mergeAttributes } from '@tiptap/core';
 import { DOMParser as ProseMirrorDOMParser } from '@tiptap/pm/model';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react';
+import type { NodeViewProps } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
@@ -336,7 +338,7 @@ const MermaidDiagramView = ({ node, updateAttributes, selected }: any) => {
           code || DEFAULT_MERMAID_CODE
         );
         if (!cancelled) {
-          setSvg(renderedSvg);
+          setSvg(DOMPurify.sanitize(renderedSvg));
         }
       } catch (err: any) {
         if (!cancelled) {
@@ -389,6 +391,81 @@ const MermaidDiagramView = ({ node, updateAttributes, selected }: any) => {
     </NodeViewWrapper>
   );
 };
+
+const API_FILE_URL_PATTERN = /\/notes\/(?:attachments\/[0-9a-f-]+\/file|[0-9a-f-]+\/file)$/i;
+
+// Attachment downloads require a Bearer token, which a plain <img> cannot send, so the
+// editor fetches them and shows an object URL instead.
+const AuthImageView = ({ node }: NodeViewProps) => {
+  const src = String(node.attrs.src ?? '');
+  const [resolvedSrc, setResolvedSrc] = useState('');
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    setFailed(false);
+
+    if (!API_FILE_URL_PATTERN.test(src)) {
+      setResolvedSrc(src);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setResolvedSrc('');
+
+    apiClient
+      .fetchWithAuth(src)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Attachment request failed with ${response.status}`);
+        }
+
+        return response.blob();
+      })
+      .then(blob => {
+        if (cancelled) return;
+
+        objectUrl = URL.createObjectURL(blob);
+        setResolvedSrc(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [src]);
+
+  if (failed) {
+    return (
+      <NodeViewWrapper>
+        <span className="text-xs text-ns-error">Görsel yüklenemedi</span>
+      </NodeViewWrapper>
+    );
+  }
+
+  return (
+    <NodeViewWrapper>
+      {resolvedSrc ? (
+        <img
+          src={resolvedSrc}
+          alt={String(node.attrs.alt ?? '')}
+          className="rounded-xl max-w-full my-4 shadow-lg border border-ns-border object-contain max-h-[600px]"
+        />
+      ) : null}
+    </NodeViewWrapper>
+  );
+};
+
+const AuthImage = Image.extend({
+  addNodeView() {
+    return ReactNodeViewRenderer(AuthImageView);
+  }
+});
 
 const MermaidDiagram = TiptapNode.create({
   name: 'mermaidDiagram',
@@ -693,6 +770,7 @@ export const Editor: React.FC<EditorProps> = ({ note, onUpdate, folderPathStr })
       }),
       Link.configure({
         openOnClick: false,
+        protocols: ['http', 'https', 'mailto'],
         HTMLAttributes: {
           class: 'text-ns-primary underline cursor-pointer',
         },
@@ -714,7 +792,7 @@ export const Editor: React.FC<EditorProps> = ({ note, onUpdate, folderPathStr })
       TableRow,
       TableHeader,
       TableCell,
-      Image.configure({
+      AuthImage.configure({
         allowBase64: true,
         HTMLAttributes: {
           class: 'rounded-xl max-w-full my-4 shadow-lg border border-ns-border object-contain max-h-[600px]',

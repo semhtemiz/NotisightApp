@@ -22,9 +22,10 @@ const MAX_RESULTS = 8;
 const toPlainText = (html: string) => {
   if (!html) return '';
 
-  const container = document.createElement('div');
-  container.innerHTML = html;
-  return container.textContent || container.innerText || '';
+  // DOMParser produces an inert document: unlike innerHTML on a live element it neither runs
+  // scripts nor loads resources, so an `<img onerror>` in stored note content cannot fire here.
+  const parsed = new DOMParser().parseFromString(html, 'text/html');
+  return parsed.body.textContent || '';
 };
 
 const getNoteIcon = (note: Note) => {
