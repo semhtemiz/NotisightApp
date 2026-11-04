@@ -7,7 +7,9 @@ namespace Notisight.Api.Tests;
 
 public sealed class InfrastructureHardeningTests
 {
-    private const string ProductionOrigin = "https://app.example.com";
+    // RFC 2606 reserved TLD: synthetic, never resolvable, and not treated as a
+    // placeholder by the CORS validation the production tests exercise.
+    private const string ProductionOrigin = "https://app.notisight.test";
 
     [Fact]
     public void Production_Requires_Configured_Cors_Origins()
