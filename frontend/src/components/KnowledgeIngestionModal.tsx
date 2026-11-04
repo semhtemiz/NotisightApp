@@ -32,6 +32,10 @@ const readAudioDurationSeconds = (file: File): Promise<number | undefined> =>
       cleanup();
       resolve(undefined);
     };
+    // The URL is a browser-minted blob: reference to this same File handle, so it carries
+    // neither markup nor a javascript: scheme. srcObject is not used because Safari does
+    // not accept a Blob there.
+    // codeql[js/xss-through-dom] ignored: blob: object URL, never user-authored markup
     audio.src = objectUrl;
   });
 

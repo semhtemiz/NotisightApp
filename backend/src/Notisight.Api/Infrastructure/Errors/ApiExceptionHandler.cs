@@ -32,7 +32,8 @@ public sealed class ApiExceptionHandler(
         Exception exception,
         CancellationToken cancellationToken)
     {
-        logger.LogError(exception, "Request failed for {Path}", httpContext.Request.Path);
+        // The path is caller-controlled, so a CR/LF inside it would forge whole log lines.
+        logger.LogError(exception, "Request failed for {Path}", SanitizeForLog(httpContext.Request.Path.ToString()));
 
         var statusCode = exception switch
         {
@@ -100,5 +101,22 @@ public sealed class ApiExceptionHandler(
             _ =>
                 "Beklenmeyen bir hata oluştu. Lütfen daha sonra tekrar deneyin."
         };
+    }
+
+    private const int MaxLoggedPathLength = 200;
+
+    private static string SanitizeForLog(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return "unknown";
+        }
+
+        if (value.Length > MaxLoggedPathLength)
+        {
+            value = value[..MaxLoggedPathLength];
+        }
+
+        return string.Concat(value.Select(c => char.IsControl(c) ? ' ' : c));
     }
 }
