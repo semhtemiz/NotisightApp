@@ -57,7 +57,7 @@ LLM Answer with Sources
 | Object Storage | Cloudflare R2 |
 | Speech-to-Text | Deepgram |
 | AI | Gemini, OpenAI-compatible providers |
-| Deploy | Vercel, Azure App Service, GitHub Actions |
+| CI/CD | GitHub Actions, CodeQL, dependency review |
 
 ## Kurulum
 
@@ -102,8 +102,9 @@ localhost için user-secrets kullanın.
 
 ## Deploy
 
-Frontend Vercel üzerinde, backend Azure App Service üzerinde çalışır.  
-`main` branch’e yapılan güncellemeler GitHub Actions ile backend deploy sürecini tetikler.
+Bu depo bir barındırma hesabına bağlı değildir; kod tabanı yerel olarak çalıştırılmak üzere tasarlanmıştır.
+`.github/workflows` altında CI ve güvenlik taramaları çalışır; Azure App Service deploy job’ı ise
+kimlik bilgileri yapılandırılmadığı için yalnızca kendi Azure/App Service ayarlarınızı bağladığınızda çalışır.
 
 ## Durum
 
