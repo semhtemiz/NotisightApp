@@ -18,7 +18,8 @@ jobs:
     name: backend
     runs-on: ubuntu-latest
     env:
-      Jwt__SigningKey: ci_jwt_signing_key
+      # Must satisfy the startup validator: at least 32 characters and not a placeholder.
+      Jwt__SigningKey: ci-only-signing-key-not-for-production-use-0123456789
 
     steps:
       - name: Checkout
@@ -103,7 +104,7 @@ jobs:
         run: dotnet restore backend/src/Notisight.Api/Notisight.Api.csproj
 
       - name: Publish backend
-        run: dotnet publish backend/src/Notisight.Api/Notisight.Api.csproj --configuration Release --no-restore --output "${{ env.AZURE_WEBAPP_PACKAGE_PATH }}"
+        run: dotnet publish backend/src/Notisight.Api/Notisight.Api.csproj --configuration Release --no-restore --output "$AZURE_WEBAPP_PACKAGE_PATH"
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -115,8 +116,8 @@ jobs:
       - name: Configure backend app settings
         run: |
           az webapp config appsettings set \
-            --name "${{ env.AZURE_WEBAPP_NAME }}" \
-            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --name "$AZURE_WEBAPP_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
             --settings Database__ApplyMigrationsOnStartup=true
 
       - name: Deploy to Azure App Service
