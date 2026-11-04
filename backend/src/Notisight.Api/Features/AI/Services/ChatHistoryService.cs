@@ -76,9 +76,11 @@ public sealed class ChatHistoryService(ApplicationDbContext dbContext) : IChatHi
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task UpdateSessionTitleAsync(Guid sessionId, string title, CancellationToken cancellationToken)
+    public async Task UpdateSessionTitleAsync(Guid sessionId, Guid userId, string title, CancellationToken cancellationToken)
     {
-        var session = await dbContext.ChatSessions.FindAsync([sessionId], cancellationToken);
+        var session = await dbContext.ChatSessions
+            .FirstOrDefaultAsync(s => s.Id == sessionId && s.UserId == userId, cancellationToken);
+
         if (session != null)
         {
             session.Title = title;

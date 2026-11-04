@@ -9,6 +9,9 @@ var app = builder.Build();
 app.ApplyNotisightDatabaseMigrations();
 app.UseNotisightApiPipeline();
 app.MapControllers();
-app.MapHealthChecks("/health");
+
+// The fallback authorization policy locks every endpoint by default; the platform health
+// probe is the one endpoint that must stay reachable without a token.
+app.MapHealthChecks("/health").AllowAnonymous();
 
 app.Run();

@@ -60,7 +60,8 @@ public sealed class InfrastructureHardeningTests
         AssertHeader(response, "X-Content-Type-Options", "nosniff");
         AssertHeader(response, "X-Frame-Options", "DENY");
         AssertHeader(response, "Referrer-Policy", "no-referrer");
-        AssertHeader(response, "Content-Security-Policy", "frame-ancestors 'none'");
+        AssertHeader(response, "Content-Security-Policy",
+            "default-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'none'; form-action 'none'");
         Assert.True(response.Headers.Contains("Strict-Transport-Security"));
     }
 

@@ -6,6 +6,8 @@ namespace Notisight.Api.Features.AI.Contracts;
 /// </summary>
 public class SessionContext
 {
+    public Guid UserId { get; set; }
+
     public string SessionId { get; set; } = string.Empty;
 
     /// <summary>

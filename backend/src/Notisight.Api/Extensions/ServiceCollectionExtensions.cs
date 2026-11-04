@@ -1,5 +1,8 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -24,6 +27,17 @@ public static class ServiceCollectionExtensions
     [
         "http://localhost:3000",
         "http://localhost:5173"
+    ];
+
+    private const int MinimumSigningKeyLength = 32;
+
+    private static readonly string[] PlaceholderSigningKeys =
+    [
+        "jwt_signing_key",
+        "signing_key",
+        "your_signing_key",
+        "changeme",
+        "secret"
     ];
 
     public static IServiceCollection AddNotisightApiServices(
@@ -71,25 +85,59 @@ public static class ServiceCollectionExtensions
                        .AllowCredentials();
             });
         });
+        // Azure App Service terminates TLS and proxies the request, so RemoteIpAddress is the
+        // load balancer unless forwarded headers are applied first.
+        services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            options.KnownNetworks.Clear();
+            options.KnownProxies.Clear();
+        });
+
         services.AddEndpointsApiExplorer();
         services.AddHealthChecks();
         services.AddProblemDetails();
         services.AddExceptionHandler<ApiExceptionHandler>();
-        services.AddAuthorization();
+        services.AddAuthorization(options =>
+        {
+            // Endpoints require authentication unless they explicitly opt out, so a forgotten
+            // [Authorize] fails closed instead of exposing someone's notes.
+            options.FallbackPolicy = new AuthorizationPolicyBuilder()
+                .RequireAuthenticatedUser()
+                .Build();
+        });
         services.AddRateLimiter(options =>
         {
-            options.AddFixedWindowLimiter("auth", limiterOptions =>
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+            // The named policies must exist for the endpoint metadata even when the in-process
+            // buckets are switched off, which integration tests and edge-limited hosts need.
+            if (!configuration.GetValue("RateLimiting:Enabled", true))
             {
-                limiterOptions.PermitLimit = 20;
-                limiterOptions.Window = TimeSpan.FromMinutes(1);
-                limiterOptions.QueueLimit = 0;
-            });
-            options.AddFixedWindowLimiter("ai", limiterOptions =>
-            {
-                limiterOptions.PermitLimit = 10;
-                limiterOptions.Window = TimeSpan.FromMinutes(1);
-                limiterOptions.QueueLimit = 0;
-            });
+                options.AddPolicy("auth", httpContext => RateLimitPartition.GetNoLimiter("auth"));
+                options.AddPolicy("ai", httpContext => RateLimitPartition.GetNoLimiter("ai"));
+                return;
+            }
+
+            // Partitioned per client: a single global bucket let one caller lock every user out
+            // of login while still allowing ~1.2M password guesses a day.
+            options.AddPolicy("auth", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                GetRateLimitPartitionKey(httpContext),
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 30,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0
+                }));
+
+            options.AddPolicy("ai", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                GetRateLimitPartitionKey(httpContext),
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 10,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0
+                }));
         });
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<ILlmChatService, OpenAiChatService>();
@@ -99,8 +147,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IToneProfileService, ToneProfileService>();
         services.AddScoped<ICurrentUser, CurrentUser>();
         services.AddScoped<ITextChunkingService, TextChunkingService>();
-        services.AddHttpClient<IEmbeddingService, GeminiEmbeddingService>();
-        services.AddHttpClient<ILlmChatService, OpenAiChatService>();
+        // Redirects are disabled on every outbound client: a validated public base URL could
+        // otherwise answer with a 302 straight at a cloud metadata endpoint.
+        services.AddHttpClient<IEmbeddingService, GeminiEmbeddingService>()
+            .ConfigureHttpClient(client => client.AllowAutoRedirect = false);
+        services.AddHttpClient<ILlmChatService, OpenAiChatService>()
+            .ConfigureHttpClient(client => client.AllowAutoRedirect = false);
         services.AddScoped<IChunkSearchService, ChunkSearchService>();
         services.AddMemoryCache();
         services.AddScoped<IIntentParserService, IntentParserService>();
@@ -110,12 +162,14 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IQueryOrchestratorService, QueryOrchestratorService>();
         services.AddScoped<IRagAnswerService, RagAnswerService>();
         services.AddScoped<IChatHistoryService, ChatHistoryService>();
-        services.AddHttpClient<IQdrantVectorService, QdrantVectorService>();
+        services.AddHttpClient<IQdrantVectorService, QdrantVectorService>()
+            .ConfigureHttpClient(client => client.AllowAutoRedirect = false);
         services.AddScoped<INoteVectorSyncService, NoteVectorSyncService>();
         services.AddSingleton<IVectorSyncQueue, InMemoryVectorSyncQueue>();
         services.AddHostedService<VectorSyncWorker>();
         services.AddScoped<IPdfIngestionService, PdfIngestionService>();
-        services.AddHttpClient<IAudioTranscriptionService, AudioTranscriptionService>();
+        services.AddHttpClient<IAudioTranscriptionService, AudioTranscriptionService>()
+            .ConfigureHttpClient(client => client.AllowAutoRedirect = false);
         services.AddScoped<IFileStorageService, CloudflareR2StorageService>();
         services.AddSwaggerGen(options =>
         {
@@ -196,6 +250,14 @@ public static class ServiceCollectionExtensions
             uri.Host.EndsWith(".example.com", StringComparison.OrdinalIgnoreCase);
     }
 
+    private static bool IsUsableSigningKey(string? signingKey) =>
+        !string.IsNullOrWhiteSpace(signingKey) &&
+        signingKey.Trim().Length >= MinimumSigningKeyLength &&
+        !PlaceholderSigningKeys.Contains(signingKey.Trim(), StringComparer.OrdinalIgnoreCase);
+
+    private static string GetRateLimitPartitionKey(HttpContext httpContext) =>
+        httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
     private static bool IsDevelopmentCorsOrigin(string origin)
     {
         if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
@@ -234,11 +296,14 @@ public static class ServiceCollectionExtensions
     {
         services.AddOptions<JwtOptions>()
             .Bind(configuration.GetSection(JwtOptions.SectionName))
-            .Validate(options =>
-                !string.IsNullOrWhiteSpace(options.Issuer) &&
-                !string.IsNullOrWhiteSpace(options.Audience) &&
-                !string.IsNullOrWhiteSpace(options.SigningKey),
-                "Jwt options must be configured.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.Issuer) &&
+                    !string.IsNullOrWhiteSpace(options.Audience),
+                "Jwt:Issuer and Jwt:Audience must be configured.")
+            .Validate(
+                options => IsUsableSigningKey(options.SigningKey),
+                "Jwt:SigningKey must be at least 32 characters of random data and may not be a " +
+                "placeholder value. Generate one with: openssl rand -base64 48")
             .ValidateOnStart();
 
         services.AddOptions<GeminiOptions>()

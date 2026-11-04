@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Notisight.Api.Domain.Entities;
 using Notisight.Api.Features.AI.Services;
+using Notisight.Api.Features.Ingestion.Services;
 using Notisight.Api.Features.Notes.Contracts;
 using Notisight.Api.Infrastructure.Auth;
 using Notisight.Api.Infrastructure.Persistence;
@@ -205,7 +206,7 @@ public sealed class NotesController(
             var (stream, contentType) = await fileStorageService.GetFileStreamAsync(note.FileUrl, cancellationToken);
             if (stream == null) return NotFound();
 
-            return File(stream, contentType, enableRangeProcessing: true);
+            return File(stream, FileSignature.ToSafeContentType(contentType), enableRangeProcessing: true);
         }
         catch (Amazon.S3.AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
@@ -213,7 +214,6 @@ public sealed class NotesController(
         }
     }
 
-    [AllowAnonymous]
     [HttpGet("attachments/{id:guid}/file")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAttachmentFile(
@@ -221,9 +221,11 @@ public sealed class NotesController(
         [FromServices] Notisight.Api.Features.Ingestion.Contracts.IFileStorageService fileStorageService,
         CancellationToken cancellationToken)
     {
+        var userId = currentUser.GetRequiredUserId();
         var attachment = await dbContext.NoteAttachments
             .AsNoTracking()
-            .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+            .Include(x => x.Note)
+            .SingleOrDefaultAsync(x => x.Id == id && x.Note.UserId == userId, cancellationToken);
         if (attachment == null || string.IsNullOrEmpty(attachment.FileUrl)) return NotFound();
 
         try
@@ -231,7 +233,7 @@ public sealed class NotesController(
             var (stream, contentType) = await fileStorageService.GetFileStreamAsync(attachment.FileUrl, cancellationToken);
             if (stream == null) return NotFound();
 
-            return File(stream, contentType, enableRangeProcessing: true);
+            return File(stream, FileSignature.ToSafeContentType(contentType), enableRangeProcessing: true);
         }
         catch (Amazon.S3.AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {

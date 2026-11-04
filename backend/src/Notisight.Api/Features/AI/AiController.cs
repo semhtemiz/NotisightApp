@@ -8,6 +8,7 @@ using Notisight.Api.Features.AI.Services;
 using Notisight.Api.Features.Settings.Enums;
 using Notisight.Api.Infrastructure.Auth;
 using Notisight.Api.Infrastructure.Errors;
+using Notisight.Api.Infrastructure.Http;
 
 namespace Notisight.Api.Features.AI;
 
@@ -75,7 +76,7 @@ public sealed class AiController(
 
             // SessionContext Update
             var sessionContextService = HttpContext.RequestServices.GetRequiredService<Notisight.Api.Features.AI.Services.ISessionContextService>();
-            var sessionCtx = await sessionContextService.GetOrCreateAsync(session.Id.ToString());
+            var sessionCtx = await sessionContextService.GetOrCreateAsync(userId, session.Id.ToString());
             await sessionContextService.UpdateAsync(sessionCtx, request.Question, fullAnswer, result.ProducedByMode);
 
             await WriteEventAsync("complete", new 
@@ -128,7 +129,7 @@ public sealed class AiController(
         // Session başlığını güncelle
         if (!string.IsNullOrWhiteSpace(request.SessionId) && Guid.TryParse(request.SessionId, out var sessionId))
         {
-            await chatHistory.UpdateSessionTitleAsync(sessionId, title ?? "Yeni Sohbet", CancellationToken.None);
+            await chatHistory.UpdateSessionTitleAsync(sessionId, userId, title ?? "Yeni Sohbet", CancellationToken.None);
         }
 
         return Ok(new { title });
@@ -198,11 +199,20 @@ public sealed class AiController(
             return;
         }
 
+        var customBaseUrl = string.IsNullOrWhiteSpace(apiSetting.CustomBaseUrl)
+            ? null
+            : apiSetting.CustomBaseUrl.Trim();
+
+        if (customBaseUrl is not null && !await SafeOutboundUrl.IsSafeAsync(customBaseUrl, cancellationToken))
+        {
+            customBaseUrl = null;
+        }
+
         chatConfigProvider.SetConfiguration(new ChatConfiguration
         {
             ProviderType = provider,
             ApiKey = key,
-            CustomBaseUrl = string.IsNullOrWhiteSpace(apiSetting.CustomBaseUrl) ? null : apiSetting.CustomBaseUrl.Trim(),
+            CustomBaseUrl = customBaseUrl,
             ModelId = IsUsableModelId(modelId) ? modelId!.Trim() : GetDefaultModelId(provider)
         });
     }

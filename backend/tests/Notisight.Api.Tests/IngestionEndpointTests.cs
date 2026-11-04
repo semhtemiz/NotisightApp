@@ -133,7 +133,7 @@ public sealed class IngestionEndpointTests : IClassFixture<TestApiFactory>
     }
 
     [Fact]
-    public async Task AttachmentFile_CanRenderFromImageTag_WhenUrlIsKnown()
+    public async Task AttachmentFile_RequiresOwner_NeverAnonymous()
     {
         var owner = await _client.RegisterAsync("attachment-owner@example.com", "P@ssw0rd123!", "Attachment Owner");
         _client.SetBearer(owner.AccessToken);
@@ -153,10 +153,18 @@ public sealed class IngestionEndpointTests : IClassFixture<TestApiFactory>
         uploadResponse.EnsureSuccessStatusCode();
         var attachment = (await uploadResponse.Content.ReadFromJsonAsync<NoteAttachmentResponse>())!;
 
+        var ownerResponse = await _client.GetAsync(attachment.FileUrl);
+        Assert.Equal(HttpStatusCode.OK, ownerResponse.StatusCode);
+        Assert.Equal("image/png", ownerResponse.Content.Headers.ContentType?.MediaType);
+
         _client.DefaultRequestHeaders.Authorization = null;
         var anonymousResponse = await _client.GetAsync(attachment.FileUrl);
-        Assert.Equal(HttpStatusCode.OK, anonymousResponse.StatusCode);
-        Assert.Equal("image/png", anonymousResponse.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymousResponse.StatusCode);
+
+        var otherUser = await _client.RegisterAsync("attachment-stranger@example.com", "P@ssw0rd123!", "Stranger");
+        _client.SetBearer(otherUser.AccessToken);
+        var strangerResponse = await _client.GetAsync(attachment.FileUrl);
+        Assert.Equal(HttpStatusCode.NotFound, strangerResponse.StatusCode);
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition, string because)

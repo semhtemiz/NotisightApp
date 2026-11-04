@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Notisight.Api.Infrastructure.Persistence;
 
@@ -7,6 +8,10 @@ public static class ApplicationBuilderExtensions
 {
     public static WebApplication UseNotisightApiPipeline(this WebApplication app)
     {
+        // Must run first: rate limiting and HTTPS redirection read the client address and
+        // scheme that App Service passes in forwarded headers.
+        app.UseForwardedHeaders();
+
         if (!app.Environment.IsDevelopment())
         {
             app.UseHsts();
@@ -65,7 +70,13 @@ public static class ApplicationBuilderExtensions
             headers.TryAdd("X-Frame-Options", "DENY");
             headers.TryAdd("Referrer-Policy", "no-referrer");
             headers.TryAdd("Permissions-Policy", "camera=(), geolocation=(), payment=()");
-            headers.TryAdd("Content-Security-Policy", "frame-ancestors 'none'");
+            // Swagger UI ships inline scripts, so the locked-down policy applies only to the
+            // environments where the API returns JSON and file bytes.
+            headers.TryAdd(
+                "Content-Security-Policy",
+                environment.IsDevelopment()
+                    ? "frame-ancestors 'none'"
+                    : "default-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'none'; form-action 'none'");
 
             await next();
         });

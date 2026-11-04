@@ -11,6 +11,7 @@ namespace Notisight.Api.Features.Auth;
 [Route("auth")]
 public sealed class AuthController(IAuthService authService, ICurrentUser currentUser) : ControllerBase
 {
+    [AllowAnonymous]
     [HttpPost("register")]
     [EnableRateLimiting("auth")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status201Created)]
@@ -22,6 +23,7 @@ public sealed class AuthController(IAuthService authService, ICurrentUser curren
         return Created("/auth/register", response);
     }
 
+    [AllowAnonymous]
     [HttpPost("login")]
     [EnableRateLimiting("auth")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
@@ -32,6 +34,7 @@ public sealed class AuthController(IAuthService authService, ICurrentUser curren
         return Ok(await authService.LoginAsync(request, cancellationToken));
     }
 
+    [AllowAnonymous]
     [HttpPost("refresh")]
     [EnableRateLimiting("auth")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
@@ -42,6 +45,7 @@ public sealed class AuthController(IAuthService authService, ICurrentUser curren
         return Ok(await authService.RefreshAsync(request, cancellationToken));
     }
 
+    [AllowAnonymous]
     [HttpPost("logout")]
     [EnableRateLimiting("auth")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Notisight.Api.Features.AI.Contracts;
 using Notisight.Api.Features.Settings.Enums;
 using Notisight.Api.Features.Settings.Services;
+using Notisight.Api.Infrastructure.Http;
 using Notisight.Api.Infrastructure.Persistence;
 
 namespace Notisight.Api.Features.AI.Services;
@@ -56,12 +57,10 @@ public class QueryOrchestratorService : IQueryOrchestratorService
                     ? GetDefaultModelId(request.Provider)
                     : request.ModelId.Trim();
 
-                if (!string.IsNullOrWhiteSpace(customBaseUrl))
+                if (!string.IsNullOrWhiteSpace(customBaseUrl) &&
+                    !await SafeOutboundUrl.IsSafeAsync(customBaseUrl, cancellationToken))
                 {
-                    if (!customBaseUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                    {
-                        customBaseUrl = null;
-                    }
+                    customBaseUrl = null;
                 }
 
                 _chatConfigProvider.SetConfiguration(new ChatConfiguration
@@ -76,13 +75,13 @@ public class QueryOrchestratorService : IQueryOrchestratorService
 
         if (onProgress != null) await onProgress("Oturum bilgileri yükleniyor...");
         // === KATMAN 1: Oturum bağlamını yükle ===
-        var session = await _sessionContext.GetOrCreateAsync(request.SessionId);
+        var session = await _sessionContext.GetOrCreateAsync(userId, request.SessionId);
 
         // === MOD GEÇİŞİ KONTROLÜ ===
         if (session.ActiveMode != request.Mode)
         {
             await _sessionContext.RecordModeSwitchAsync(
-                session.SessionId,
+                session,
                 fromMode: session.ActiveMode,
                 toMode: request.Mode);
         }
@@ -90,7 +89,7 @@ public class QueryOrchestratorService : IQueryOrchestratorService
         // === TON DEĞİŞİM KONTROLÜ ===
         if (session.ActiveTone != request.Tone)
         {
-            await _sessionContext.UpdateToneAsync(session.SessionId, request.Tone);
+            await _sessionContext.UpdateToneAsync(session, request.Tone);
             session.ActiveTone = request.Tone;
         }
 
@@ -164,7 +163,7 @@ public class QueryOrchestratorService : IQueryOrchestratorService
         foreach (var chunk in chunks)
         {
             if (chunk.Chunk.NoteId != Guid.Empty)
-                await _sessionContext.AddAccessedSourceAsync(session.SessionId, chunk.Chunk.NoteId.ToString());
+                await _sessionContext.AddAccessedSourceAsync(session, chunk.Chunk.NoteId.ToString());
         }
 
         if (onProgress != null) await onProgress($"{chunks.Count} kaynak analiz ediliyor...");

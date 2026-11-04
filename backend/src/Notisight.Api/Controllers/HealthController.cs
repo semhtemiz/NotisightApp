@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Notisight.Api.Contracts;
 
@@ -8,6 +9,7 @@ namespace Notisight.Api.Controllers;
 public sealed class HealthController : ControllerBase
 {
     [HttpGet]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(HealthResponse), StatusCodes.Status200OK)]
     public ActionResult<HealthResponse> Get()
     {

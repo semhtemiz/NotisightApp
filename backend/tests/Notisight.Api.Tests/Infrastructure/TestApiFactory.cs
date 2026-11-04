@@ -37,6 +37,7 @@ public sealed class TestApiFactory : WebApplicationFactory<Program>, IAsyncLifet
                 ["Jwt:SigningKey"] = "test-signing-key-with-enough-length-for-hmac",
                 ["Jwt:AccessTokenMinutes"] = "60",
                 ["Jwt:RefreshTokenDays"] = "14",
+                ["RateLimiting:Enabled"] = "false",
                 ["Database:SkipMigrations"] = "true"
             });
         });
