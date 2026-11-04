@@ -6,6 +6,7 @@ using Notisight.Api.Features.Settings.Enums;
 using Notisight.Api.Features.Settings.Models;
 using Notisight.Api.Features.Settings.Services;
 using Notisight.Api.Infrastructure.Auth;
+using Notisight.Api.Infrastructure.Http;
 using Notisight.Api.Infrastructure.Persistence;
 
 namespace Notisight.Api.Features.Settings;
@@ -49,7 +50,8 @@ public class SettingsController(
 
                 if (isConfigured && decryptedKey.Length > 4)
                 {
-                    maskedKey = new string('*', decryptedKey.Length - 4) + decryptedKey.Substring(decryptedKey.Length - 4);
+                    // Fixed-width mask: a variable number of asterisks would disclose the key length.
+                    maskedKey = "********" + decryptedKey.Substring(decryptedKey.Length - 4);
                 }
                 else if (isConfigured)
                 {
@@ -83,6 +85,13 @@ public class SettingsController(
         }
 
         var customBaseUrl = string.IsNullOrWhiteSpace(request.CustomBaseUrl) ? null : request.CustomBaseUrl.Trim();
+
+        // The API posts this user's provider key and note content to the configured address,
+        // so internal targets must never be accepted.
+        if (customBaseUrl is not null && !await SafeOutboundUrl.IsSafeAsync(customBaseUrl, cancellationToken))
+        {
+            throw new InvalidOperationException("Özel base URL geçerli bir herkese açık adres değil.");
+        }
 
         if (existingSetting == null)
         {

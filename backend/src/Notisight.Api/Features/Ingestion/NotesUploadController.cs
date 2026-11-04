@@ -50,6 +50,11 @@ public sealed class NotesUploadController(
         await file.CopyToAsync(memoryStream, cancellationToken);
         var fileBytes = memoryStream.ToArray();
 
+        if (!FileSignature.MatchesExtension(fileBytes, file.FileName))
+        {
+            throw new InvalidOperationException("File content does not match its extension.");
+        }
+
         using var extractStream = new MemoryStream(fileBytes);
         var content = await pdfIngestionService.ExtractTextAsync(extractStream, cancellationToken);
 
@@ -117,11 +122,20 @@ public sealed class NotesUploadController(
         await file.CopyToAsync(memoryStream, cancellationToken);
         var fileBytes = memoryStream.ToArray();
 
+        if (!FileSignature.MatchesExtension(fileBytes, file.FileName))
+        {
+            throw new InvalidOperationException("File content does not match its extension.");
+        }
+
         using var transcribeStream = new MemoryStream(fileBytes);
         var transcript = await TryTranscribeAudioAsync(transcribeStream, file.FileName, cancellationToken);
 
         using var uploadStream = new MemoryStream(fileBytes);
-        var fileUrl = await fileStorageService.UploadFileAsync(uploadStream, file.FileName, file.ContentType, cancellationToken);
+        var fileUrl = await fileStorageService.UploadFileAsync(
+            uploadStream,
+            file.FileName,
+            FileSignature.GetContentType(file.FileName),
+            cancellationToken);
 
         var note = new Note
         {
@@ -189,15 +203,22 @@ public sealed class NotesUploadController(
         await file.CopyToAsync(memoryStream, cancellationToken);
         var fileBytes = memoryStream.ToArray();
 
+        if (!FileSignature.MatchesExtension(fileBytes, file.FileName))
+        {
+            throw new InvalidOperationException("File content does not match its extension.");
+        }
+
+        var contentType = FileSignature.GetContentType(file.FileName);
+
         using var uploadStream = new MemoryStream(fileBytes);
-        var fileUrl = await fileStorageService.UploadFileAsync(uploadStream, file.FileName, file.ContentType, cancellationToken);
+        var fileUrl = await fileStorageService.UploadFileAsync(uploadStream, file.FileName, contentType, cancellationToken);
 
         var attachment = new NoteAttachment
         {
             Id = Guid.NewGuid(),
             NoteId = noteId,
-            FileName = file.FileName,
-            ContentType = file.ContentType,
+            FileName = Path.GetFileName(file.FileName),
+            ContentType = contentType,
             FileUrl = fileUrl,
             CreatedAtUtc = DateTimeOffset.UtcNow
         };

@@ -28,7 +28,7 @@ public class CloudflareR2StorageService : IFileStorageService
 
     public async Task<string> UploadFileAsync(Stream fileStream, string fileName, string contentType, CancellationToken cancellationToken)
     {
-        var objectKey = $"{Guid.NewGuid()}-{fileName}";
+        var objectKey = $"{Guid.NewGuid():N}-{FileSignature.ToObjectName(fileName)}";
 
         var uploadRequest = new TransferUtilityUploadRequest
         {

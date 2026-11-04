@@ -21,6 +21,8 @@ public sealed class ApiExceptionHandler(
         "Deepgram did not return an audio transcript.",
         "Uploaded image is empty.",
         "Only JPG, PNG, GIF, and WEBP images are supported.",
+        "File content does not match its extension.",
+        "Özel base URL geçerli bir herkese açık adres değil.",
         "Bu e-posta adresi zaten kullanılıyor.",
         "Bu kullanıcı adı zaten kullanılıyor."
     };
